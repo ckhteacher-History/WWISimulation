@@ -1,0 +1,1541 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>참호 속으로 — 1차 세계대전 선택형 시뮬레이션</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@400;700;800&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0b0a08; --ink:#e9e0cc; --dim:#9b907b; --line:#3a3328;
+    --blood:#9e1f1f; --mud:#2a241b; --accent:#c9a45c;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;background:var(--bg);color:var(--ink);
+    font-family:'Noto Sans KR',sans-serif;overflow:hidden;-webkit-font-smoothing:antialiased}
+  button{font-family:inherit;cursor:pointer}
+
+  /* 필름 노이즈 + 비네팅 */
+  body::after{content:"";position:fixed;inset:-50%;pointer-events:none;z-index:60;opacity:.08;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+    animation:grain 1s steps(6) infinite}
+  @keyframes grain{0%{transform:translate(0,0)}20%{transform:translate(-5%,3%)}40%{transform:translate(4%,-4%)}
+    60%{transform:translate(-3%,5%)}80%{transform:translate(5%,2%)}100%{transform:translate(0,0)}}
+  .vignette{position:fixed;inset:0;pointer-events:none;z-index:55;
+    background:radial-gradient(ellipse at center,transparent 45%,rgba(0,0,0,.85) 100%)}
+
+  .screen{position:fixed;inset:0;display:none;overflow-y:auto}
+  .screen.active{display:flex}
+
+  /* ── 불러오기 ── */
+  #loading{align-items:center;justify-content:center;background:var(--bg)}
+  .load-box{width:min(520px,86vw);text-align:center}
+  .load-text{font-family:'Nanum Myeongjo',serif;font-size:20px;letter-spacing:.2em;margin-bottom:18px;animation:breathe 1.6s ease-in-out infinite}
+  @keyframes breathe{50%{opacity:.45}}
+  .load-bar{height:3px;background:#2a241b;overflow:hidden}
+  #loadFill{height:100%;width:0;background:var(--accent);transition:width .4s}
+  #loadDetail{margin-top:12px;font-size:12px;color:var(--dim);min-height:1.2em}
+  /* 불러오는 동안 보여 주는 1차 세계대전 이야기 */
+  .load-fact{margin-top:42px;min-height:11em;transition:opacity .6s}
+  .load-fact.out{opacity:0}
+  .load-fact-tag{font-size:11px;letter-spacing:.3em;color:var(--accent);margin-bottom:10px}
+  .load-fact-text{font-family:'Nanum Myeongjo',serif;font-size:15px;line-height:1.9;color:var(--ink);word-break:keep-all}
+  .load-fact-body{display:flex;gap:18px;align-items:flex-start;justify-content:center}
+  .load-fact-body.has-img{text-align:left}
+  #loadFactImg{width:104px;height:104px;object-fit:cover;flex:none;border:1px solid var(--line);
+    filter:sepia(.35) grayscale(.2) contrast(1.05);display:none;margin-top:6px}
+  #loadFactImg.show{display:block}
+  .load-fact-credit{margin-top:10px;font-size:10px;color:var(--dim);opacity:0;transition:opacity .4s}
+  .load-fact-credit.show{opacity:.7}
+  @media (max-width:480px){#loadFactImg{width:76px;height:76px} .load-fact-body{gap:12px}}
+
+  /* 영상 컨트롤바 완전히 숨기기 (크롬·사파리 공통) */
+  video::-webkit-media-controls,
+  video::-webkit-media-controls-enclosure,
+  video::-webkit-media-controls-panel,
+  video::-webkit-media-controls-overlay-play-button,
+  video::-webkit-media-controls-start-playback-button{display:none !important;-webkit-appearance:none;opacity:0}
+
+  /* ── 오프닝 영상 ── */
+  #opening{background:#000;align-items:center;justify-content:center;overflow:hidden;transition:opacity .9s}
+  #opening.fade{opacity:0}
+  #openVid{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#000;
+    opacity:0;transition:opacity .8s;pointer-events:none}
+  #openVid.show{opacity:1}
+  #openShield{position:absolute;inset:0;z-index:5}
+  #openLoading{position:relative;z-index:6;color:var(--dim);font-size:14px;letter-spacing:.2em;pointer-events:none}
+  #openUnmute{top:16px;right:16px;background:var(--blood);border-color:var(--blood);animation:pulse 1.4s infinite}
+  #openSkip{bottom:18px;right:18px;font-size:12px;opacity:.7}
+
+  /* ── 시작 화면 ── */
+  #intro,#gender,#naming{align-items:center;justify-content:center;
+    background:radial-gradient(ellipse at 50% 120%,#3a2a18 0%,#0b0a08 60%)}
+  .intro-box{width:min(560px,92vw);margin:auto;text-align:center;padding:48px 0}
+  .date{letter-spacing:.3em;font-size:13px;color:var(--accent);margin-bottom:18px}
+  h1{font-family:'Nanum Myeongjo',serif;font-weight:800;font-size:clamp(42px,9vw,72px);
+    letter-spacing:.05em;text-shadow:0 0 30px rgba(158,31,31,.5);margin-bottom:22px}
+  .lead{font-family:'Nanum Myeongjo',serif;line-height:1.9;color:#d5ccb7;margin-bottom:34px;font-size:16px}
+  .fields{display:grid;grid-template-columns:2fr 3fr;gap:10px;margin-bottom:14px;text-align:left}
+  .field label{display:block;font-size:12px;letter-spacing:.15em;color:var(--dim);margin:0 0 6px 2px}
+  .field input{width:100%;padding:14px 16px;background:rgba(255,255,255,.04);border:1px solid var(--line);
+    color:var(--ink);font-size:16px;font-family:inherit;text-align:center;outline:none}
+  .field input:focus{border-color:var(--accent)}
+  .field input::placeholder{color:rgba(210,210,210,.32);opacity:1}   /* 예시 샘플: 연한 회색 */
+  .field input:focus::placeholder{color:rgba(210,210,210,.18)}
+  .btn{width:100%;padding:16px;font-size:17px;font-weight:700;letter-spacing:.1em;border:none;
+    background:var(--blood);color:#fff;transition:filter .2s, transform .1s}
+  .btn:hover{filter:brightness(1.15)} .btn:active{transform:scale(.98)}
+  .btn:disabled{background:#3a3328;color:var(--dim);cursor:wait}
+  .notice{margin-top:18px;font-size:13px;color:var(--dim)}
+  /* ── 성별 · 이름 정하기 ── */
+  .step-title{font-family:'Nanum Myeongjo',serif;font-weight:800;font-size:clamp(26px,5vw,36px);margin-bottom:28px}
+  .gender-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .gbtn{padding:34px 10px;font-size:22px;font-weight:700;letter-spacing:.2em;border:1px solid var(--line);
+    background:rgba(255,255,255,.03);color:var(--ink);transition:background .2s,border-color .2s}
+  .gbtn:hover{background:rgba(158,31,31,.3);border-color:var(--blood)}
+  .gbtn small{display:block;margin-top:8px;font-size:12px;font-weight:400;letter-spacing:.1em;color:var(--dim)}
+  .slot{border:1px solid var(--line);background:rgba(0,0,0,.35);padding:28px 10px;margin-bottom:14px;
+    transition:border-color .3s,box-shadow .3s}
+  #slotName{font-family:'Nanum Myeongjo',serif;font-weight:800;font-size:clamp(36px,8vw,52px);min-height:1.3em}
+  #slotEng{font-size:14px;letter-spacing:.3em;color:var(--dim);min-height:1.4em}
+  .slot.spinning #slotName{filter:blur(1.5px);color:#cfc6b2}
+  .slot.done{border-color:var(--accent);box-shadow:0 0 30px rgba(201,164,92,.18)}
+  #nameResult{font-family:'Nanum Myeongjo',serif;min-height:1.8em;margin-bottom:14px;color:#d5ccb7}
+  .modal{position:fixed;inset:0;z-index:80;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.7)}
+  .modal.show{display:flex}
+  .modal-box{width:min(380px,86vw);background:#16130e;border:1px solid var(--line);padding:28px 24px;text-align:center}
+  #modalText{white-space:pre-line;line-height:1.8;margin-bottom:20px}
+  /* 결말 팝업 */
+  .end-popup{position:fixed;inset:0;z-index:75;display:none;align-items:center;justify-content:center;
+    background:rgba(0,0,0,.55);padding:16px}
+  .end-popup.show{display:flex;animation:popIn .6s ease}
+  @keyframes popIn{from{opacity:0}to{opacity:1}}
+  .end-popup-box{width:min(640px,100%);text-align:center;padding:48px 28px 36px;
+    background:rgba(12,10,8,.92);border:1px solid var(--blood);box-shadow:0 0 60px rgba(158,31,31,.35)}
+  .end-popup-box .ending-tag{margin-bottom:14px}
+  #popTitle{font-family:'Nanum Myeongjo',serif;font-weight:800;font-size:clamp(34px,7vw,56px);
+    text-shadow:0 0 30px rgba(158,31,31,.6);margin-bottom:22px}
+  #popText{font-family:'Nanum Myeongjo',serif;font-size:clamp(16px,2.6vw,20px);line-height:1.9;
+    white-space:pre-line;color:#d5ccb7;margin-bottom:32px}
+  #popClose{max-width:240px}
+  .end-who{font-size:13px;letter-spacing:.2em;color:var(--accent);margin-bottom:6px}
+  .shake{animation:shake .35s}
+  @keyframes shake{25%{transform:translateX(-8px)}75%{transform:translateX(8px)}}
+
+  /* ── 장면 화면 ── */
+  #scene{background:#000}
+  #stage{position:absolute;inset:0;transition:filter .8s, opacity .8s}
+  #stage.dim{filter:brightness(.35) blur(2px)}
+  #ytWrap,#vid{position:absolute;inset:0;width:100%;height:100%;opacity:0;transition:opacity .5s;background:#000}
+  #ytWrap.show,#vid.show{opacity:1}
+  #ytWrap iframe{width:100%;height:100%;border:0}
+  #vid{object-fit:contain;pointer-events:none;background:transparent}
+  /* 직전 영상의 마지막 장면을 멈춰 보여 주는 캔버스 */
+  #freeze{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;display:none}
+  #freeze.show{display:block}
+  #clickShield{position:absolute;inset:0;z-index:5}   /* 영상 클릭으로 일시정지/유튜브 이동 방지 */
+  #sceneLabel{position:absolute;top:18px;left:20px;z-index:6;font-size:13px;letter-spacing:.15em;
+    color:rgba(233,224,204,.75);text-shadow:0 1px 4px #000}
+  .chip{position:absolute;z-index:7;padding:10px 16px;font-size:14px;border:1px solid rgba(255,255,255,.3);
+    background:rgba(0,0,0,.55);color:#fff;display:none;backdrop-filter:blur(4px)}
+  .chip.show{display:block}
+  #unmuteBtn{top:16px;right:16px;background:var(--blood);border-color:var(--blood);animation:pulse 1.4s infinite}
+  /* 결말을 한 번 본 뒤 같은 성별로 다시 하면 나오는 '프롤로그 건너뛰기' */
+  #prologueSkip{position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:40;padding:10px 20px;font-size:14px;
+    letter-spacing:.08em;border:1px solid var(--accent);background:rgba(0,0,0,.6);color:var(--accent);display:none;
+    backdrop-filter:blur(4px)}
+  #prologueSkip.show{display:block}
+  #prologueSkip:hover{background:var(--accent);color:#000}
+  @keyframes pulse{50%{box-shadow:0 0 0 8px rgba(158,31,31,.25)}}
+  #skipBtn{bottom:18px;right:18px;font-size:12px;opacity:.7}
+
+  #panel{position:absolute;left:0;right:0;bottom:0;z-index:10;padding:40px 20px 34px;
+    background:linear-gradient(to top,rgba(8,7,5,.98) 55%,rgba(8,7,5,0));
+    transform:translateY(30px);opacity:0;pointer-events:none;transition:all .7s ease}
+  #panel.show{transform:none;opacity:1;pointer-events:auto}
+  .panel-inner{max-width:820px;margin:0 auto}
+  #sceneTitle{font-family:'Nanum Myeongjo',serif;font-size:clamp(20px,3.6vw,28px);margin-bottom:16px;color:var(--accent)}
+  #narration{font-family:'Nanum Myeongjo',serif;font-size:clamp(15px,2.4vw,18px);line-height:1.95;
+    white-space:pre-line;min-height:3em;cursor:pointer}
+  .hint{font-size:12px;color:var(--dim);margin-top:6px}
+
+  #timer{display:none;margin-top:22px;align-items:center;gap:12px}
+  #timer.show{display:flex}
+  .bar{flex:1;height:4px;background:#2a241b;overflow:hidden}
+  #timerBar{height:100%;width:100%;background:var(--accent)}
+  #timerText{font-size:14px;width:44px;text-align:right;color:var(--accent);font-variant-numeric:tabular-nums}
+  #timer.urgent #timerBar{background:var(--blood)}
+  #timer.urgent #timerText{color:#ff5a5a;animation:blink .5s infinite}
+  @keyframes blink{50%{opacity:.3}}
+
+  #choices{display:grid;gap:10px;margin-top:18px}
+  /* 프롤로그처럼 선택지 없이 이어지는 장면의 '다음' 버튼 */
+  .continue{justify-self:end;padding:10px 22px;font-size:15px;letter-spacing:.15em;border:1px solid var(--line);
+    background:rgba(0,0,0,.35);color:var(--dim);opacity:0;transition:opacity .6s, color .2s, border-color .2s}
+  .continue.in{opacity:1}
+  .continue:hover{color:var(--ink);border-color:var(--accent)}
+  .choice{text-align:left;padding:16px 20px;font-size:16px;border:1px solid var(--line);
+    background:rgba(42,36,27,.7);color:var(--ink);opacity:0;transform:translateX(-10px);
+    transition:opacity .4s, transform .4s, background .2s, border-color .2s}
+  .choice.in{opacity:1;transform:none}
+  .choice:hover{background:rgba(158,31,31,.35);border-color:var(--blood)}
+  .choice::before{content:"▸ ";color:var(--accent)}
+  .choice:disabled{opacity:.4}
+
+  #waitMsg{position:absolute;inset:0;z-index:8;display:none;align-items:center;justify-content:center;
+    font-family:'Nanum Myeongjo',serif;font-size:18px;letter-spacing:.2em;color:var(--ink);background:rgba(0,0,0,.6)}
+  #waitMsg.show{display:flex;animation:breathe 1.6s ease-in-out infinite}
+  #flash{position:absolute;inset:0;z-index:20;display:flex;align-items:center;justify-content:center;
+    font-family:'Nanum Myeongjo',serif;font-size:clamp(22px,4vw,34px);color:#ff6b6b;
+    background:rgba(60,0,0,.55);opacity:0;pointer-events:none;transition:opacity .3s}
+  #flash.show{opacity:1}
+
+  /* ── 결말 화면 ── */
+  #ending{background:radial-gradient(ellipse at 50% 0%,#2a1d12 0%,#0b0a08 65%)}
+  .ending-box{width:min(720px,92vw);margin:auto;padding:56px 0}
+  .ending-tag{letter-spacing:.4em;font-size:12px;color:var(--blood);margin-bottom:10px}
+  #endTitle{font-family:'Nanum Myeongjo',serif;font-size:clamp(26px,5vw,38px);margin-bottom:20px}
+  #endNarration{font-family:'Nanum Myeongjo',serif;line-height:1.95;white-space:pre-line;margin-bottom:30px;color:#d5ccb7}
+  .card{border:1px solid var(--line);background:rgba(255,255,255,.025);padding:20px 22px;margin-bottom:18px}
+  .card h3{font-size:14px;letter-spacing:.15em;color:var(--accent);margin-bottom:10px}
+  .card p{line-height:1.85;font-size:15px}
+  #endPath{padding-left:20px;line-height:1.9;font-size:14px;color:#cfc6b2}
+  #endPath b{color:var(--ink)}
+  .reflect-head{margin:30px 0 4px;font-size:14px;letter-spacing:.15em;color:var(--accent)}
+  .reflect-q{display:block;font-family:'Nanum Myeongjo',serif;font-weight:400;line-height:1.85;margin:18px 0 8px;word-break:keep-all;white-space:pre-line}
+  .reflect-a{width:100%;min-height:120px;padding:14px;background:rgba(255,255,255,.04);border:1px solid var(--line);
+    color:var(--ink);font-family:inherit;font-size:15px;line-height:1.7;resize:vertical;outline:none}
+  .reflect-a:focus{border-color:var(--accent)}
+  .btn:disabled{opacity:.4;cursor:not-allowed}
+  #endHint{margin-top:10px;font-size:13px;color:var(--dim)}
+  #collectInfo{font-size:14px;line-height:1.8;color:#cfc6b2;white-space:pre-line}
+  .row{display:flex;gap:10px;margin-top:14px}
+  .row .btn{flex:1}
+  .btn.ghost{background:transparent;border:1px solid var(--line);color:var(--ink)}
+  #submitMsg{margin-top:12px;font-size:14px;color:var(--accent);min-height:1.4em}
+</style>
+</head>
+<body>
+<div class="vignette"></div>
+
+<!-- 안내 창 -->
+<div id="modal" class="modal">
+  <div class="modal-box">
+    <p id="modalText"></p>
+    <button id="modalOk" class="btn">확인</button>
+  </div>
+</div>
+
+<!-- 결말 팝업 -->
+<div id="endPopup" class="end-popup">
+  <div class="end-popup-box">
+    <p class="ending-tag">ENDING</p>
+    <h2 id="popTitle"></h2>
+    <p id="popText"></p>
+    <button id="popClose" class="btn">닫기</button>
+  </div>
+</div>
+
+<!-- 불러오기 -->
+<section id="loading" class="screen active">
+  <div class="load-box">
+    <p id="loadText" class="load-text">Now Loading...</p>
+    <div class="load-bar"><div id="loadFill"></div></div>
+    <p id="loadDetail"></p>
+    <div id="loadFact" class="load-fact">
+      <p class="load-fact-tag">알고 있나요?</p>
+      <div class="load-fact-body">
+        <img id="loadFactImg" alt="">
+        <p id="loadFactText" class="load-fact-text"></p>
+      </div>
+      <p id="loadFactCredit" class="load-fact-credit">사진: Wikimedia Commons (퍼블릭 도메인)</p>
+    </div>
+  </div>
+</section>
+
+<!-- 오프닝 영상 -->
+<section id="opening" class="screen">
+  <video id="openVid" playsinline webkit-playsinline preload="auto"
+         disablepictureinpicture disableremoteplayback
+         controlslist="nodownload nofullscreen noremoteplayback noplaybackrate"></video>
+  <div id="openShield"></div>
+  <p id="openLoading">불러오는 중…</p>
+  <button id="openUnmute" class="chip">🔊 소리 켜기</button>
+  <button id="openSkip" class="chip">건너뛰기 ▶▶</button>
+</section>
+
+<!-- 시작 -->
+<section id="intro" class="screen">
+  <div class="intro-box">
+    <p class="date">1914 – 1918 · 제1차 세계대전</p>
+    <h1>참호 속으로</h1>
+    <p class="lead">
+      전쟁은 전선의 병사만의 일이 아니었습니다.<br>
+      참호 속 병사로, 혹은 후방의 젊은 여성으로<br>
+      그 시대를 직접 살아 보세요.<br>
+      <b>당신의 선택이 당신의 운명을 결정합니다.</b>
+    </p>
+    <div class="fields">
+      <div class="field">
+        <label for="sidInput">학번</label>
+        <input id="sidInput" placeholder="30800" inputmode="numeric" maxlength="10" autocomplete="off">
+      </div>
+      <div class="field">
+        <label for="nameInput">이름</label>
+        <input id="nameInput" placeholder="김천왕" maxlength="20" autocomplete="off">
+      </div>
+    </div>
+    <button id="startBtn" class="btn" disabled>불러오는 중…</button>
+    <p class="notice">🎧 이어폰을 착용하세요. 소리가 켜진 상태로 진행됩니다.</p>
+  </div>
+</section>
+
+<!-- 성별 선택 -->
+<section id="gender" class="screen">
+  <div class="intro-box">
+    <p class="date">입대 서류 · 1916</p>
+    <h2 class="step-title">성별을 선택하세요</h2>
+    <div class="gender-row">
+      <button id="maleBtn" class="gbtn">남성</button>
+      <button id="femaleBtn" class="gbtn">여성</button>
+    </div>
+  </div>
+</section>
+
+<!-- 이름 정하기 -->
+<section id="naming" class="screen">
+  <div class="intro-box">
+    <h2 class="step-title">당신의 이름은?</h2>
+    <div id="slot" class="slot"><div id="slotName">? ? ?</div><div id="slotEng"></div></div>
+    <p id="nameResult"></p>
+    <button id="spinBtn" class="btn">이름 설정하기</button>
+    <button id="enterBtn" class="btn" style="display:none">참호로 들어간다</button>
+  </div>
+</section>
+
+<button id="prologueSkip">프롤로그 건너뛰기 ▶▶</button>
+
+<!-- 장면 -->
+<section id="scene" class="screen">
+  <div id="stage">
+    <canvas id="freeze"></canvas>
+    <div id="ytWrap"><div id="ytPlayer"></div></div>
+    <video id="vid" playsinline webkit-playsinline preload="auto"
+           disablepictureinpicture disableremoteplayback
+           controlslist="nodownload nofullscreen noremoteplayback noplaybackrate"></video>
+    <div id="clickShield"></div>
+    <div id="sceneLabel"></div>
+  </div>
+  <button id="unmuteBtn" class="chip">🔊 소리 켜기</button>
+  <button id="skipBtn" class="chip">건너뛰기 ▶▶</button>
+
+  <div id="panel">
+    <div class="panel-inner">
+      <h2 id="sceneTitle"></h2>
+      <p id="narration"></p>
+      <p class="hint" id="typeHint">(글을 클릭하면 바로 볼 수 있어요)</p>
+      <div id="timer"><div class="bar"><div id="timerBar"></div></div><span id="timerText"></span></div>
+      <div id="choices"></div>
+    </div>
+  </div>
+  <div id="waitMsg">불러오는 중...</div>
+  <div id="flash"></div>
+</section>
+
+<!-- 결말 -->
+<section id="ending" class="screen">
+  <div class="ending-box">
+    <p id="endWho" class="end-who"></p>
+    <p class="ending-tag">ENDING</p>
+    <h2 id="endTitle"></h2>
+    <p id="endNarration"></p>
+    <div class="card" id="historyCard"><h3>📜 역사 속 사실</h3><p id="endHistory"></p></div>
+    <div class="card"><h3>나의 선택</h3><ol id="endPath"></ol></div>
+    <div id="reflectBox"></div>
+    <p id="endHint">모든 질문에 답을 써야 다음으로 넘어갈 수 있어요.</p>
+    <div class="row">
+      <button id="restartBtn" class="btn" disabled>답 저장하고 처음으로</button>
+      <button id="pdfBtn" class="btn ghost" disabled>답 저장하고 PDF로 저장하기</button>
+    </div>
+    <p id="submitMsg"></p>
+    <div class="card" style="margin-top:24px"><h3>📚 지금까지 본 결말</h3><p id="collectInfo">불러오는 중…</p></div>
+  </div>
+</section>
+
+<script>
+/* ===================== GitHub Pages 설정 ===================== */
+// 1) 구글 클라우드에서 만든 API 키 (Google Drive API만 허용 + 이 사이트 주소로 제한해 두세요)
+const DRIVE_API_KEY = 'AIzaSyAPBQ-8-wN-lpL1opdmKw8SghMEH-A_b3s';
+// 2) 구글 시트 '장면' 탭을 [파일 → 공유 → 웹에 게시 → CSV]로 게시한 주소
+const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTcaItXtRgW-zfnodHyhHXDcwMGqaP4RssERZ1O58JTCw1xqRzXtLzzYJBbc0Rf_SGL_fbPxQixamQ8/pub?gid=1103878976&single=true&output=csv';
+/* ===================== 설정 ===================== */
+// 학번·이름 입력 후 '시작'을 누르면 재생되는 오프닝 영상 (구글 드라이브 주소 / mp4 주소, 비우면 오프닝 없이 시작)
+const FEMALE_START = 'FP01';  // 여성 시나리오 첫 장면 ID (시트, 여성 프롤로그 첫 장면)
+const MALE_PROLOGUE = 'P01';  // 남성 프롤로그 첫 장면 ID (시트에 없으면 프롤로그 없이 오프닝부터)
+const OPENING_VIDEO = 'https://drive.google.com/file/d/1nE9WwGfFBX0X13-GVhJZqQLkCv9rQ4Oi/view?usp=drive_link';
+const ALLOW_SKIP = false;       // 영상 '건너뛰기' 버튼 (false: 시나리오 영상은 끝까지 봐야 함)
+const SKIP_DELAY_MS = 3000;     // 영상 시작 후 건너뛰기 버튼이 나타나기까지
+const HIDE_LABEL_SCENES = ['F03'];   // 왼쪽 위 장면 이름을 숨길 장면 (결말 이름이 스포가 되는 경우)
+// 결말별 '생각해 보기' 질문은 시트 O열 '성찰 질문' (빈 줄로 질문 구분)
+
+/* ===================== 상태 ===================== */
+let SCENES = {}, START_ID = null;
+let current = null, path = [], studentName = '';
+let player = null, ytReady = false, pendingYT = null;
+let mediaType = null;           // 'yt' | 'mp4' | null
+let sceneToken = 0;             // 장면이 바뀌면 증가 → 이전 장면의 비동기 콜백 무시
+let timerId = null, typeToken = 0, typingSkip = null;
+
+const $ = id => document.getElementById(id);
+
+/* ===================== 데이터 불러오기 ===================== */
+// → 맨 아래 boot()에서 장면 정보와 모든 영상을 미리 불러옵니다.
+
+/* ===================== 유튜브 플레이어 ===================== */
+(function loadYT() {
+  const s = document.createElement('script');
+  s.src = 'https://www.youtube.com/iframe_api';
+  document.head.appendChild(s);
+})();
+
+function onYouTubeIframeAPIReady() {
+  player = new YT.Player('ytPlayer', {
+    width: '100%', height: '100%',
+    playerVars: { controls: 0, disablekb: 1, rel: 0, playsinline: 1, iv_load_policy: 3, fs: 0, modestbranding: 1 },
+    events: {
+      onReady: () => {
+        ytReady = true;
+        if (pendingYT) { const id = pendingYT; pendingYT = null; startYT(id, sceneToken); }
+      },
+      onStateChange: e => {
+        if (mediaType === 'yt' && e.data === YT.PlayerState.ENDED) afterVideo(sceneToken);
+      },
+      onError: () => { if (mediaType === 'yt') videoFailed(sceneToken); }
+    }
+  });
+}
+
+/* ===================== 화면 전환 ===================== */
+function show(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  $(id).classList.add('active');
+  if (id !== 'scene' && id !== 'opening') $('prologueSkip').classList.remove('show');
+}
+
+$('startBtn').onclick = () => {
+  // 비워 두면 예시 샘플(30800 김천왕)로 시작
+  const sid = $('sidInput').value.trim() || $('sidInput').placeholder;
+  const name = $('nameInput').value.trim() || $('nameInput').placeholder;
+  studentName = sid + ' ' + name;
+  show('gender');
+};
+
+/* ===================== 성별 · 이름 정하기 (이 동안에도 영상은 뒤에서 계속 받아짐) ===================== */
+const NAMES = {   // 1차 대전 당시 영국에서 흔했던 이름
+  M: [
+    { ko: '윌리엄', en: 'William' },
+    { ko: '존', en: 'John' },
+    { ko: '조지', en: 'George' },
+    { ko: '토머스', en: 'Thomas' },
+    { ko: '아서', en: 'Arthur' }
+  ],
+  F: [
+    { ko: '메리', en: 'Mary' },
+    { ko: '플로렌스', en: 'Florence' },
+    { ko: '에디스', en: 'Edith' },
+    { ko: '엘시', en: 'Elsie' },
+    { ko: '도로시', en: 'Dorothy' }
+  ]
+};
+let soldier = null, gender = 'M';
+
+function showModal(msg) { $('modalText').textContent = msg; $('modal').classList.add('show'); }
+$('modalOk').onclick = () => $('modal').classList.remove('show');
+
+$('femaleBtn').onclick = () => openNaming('F');
+$('maleBtn').onclick = () => openNaming('M');
+
+function openNaming(g) {
+  gender = g;
+  if (g === 'F') enqueueVideos(prologueVideos(FEMALE_START), true);   // 여성 프롤로그·오프닝 영상부터 먼저 받기
+  soldier = null;
+  $('enterBtn').textContent = g === 'F' ? '1914년으로' : '참호로 들어간다';
+  $('slot').className = 'slot';
+  $('slotName').textContent = '? ? ?';
+  $('slotEng').textContent = '';
+  $('nameResult').textContent = '';
+  $('spinBtn').style.display = '';
+  $('spinBtn').disabled = false;
+  $('enterBtn').style.display = 'none';
+  show('naming');
+}
+
+$('spinBtn').onclick = () => {
+  $('spinBtn').disabled = true;
+  const list = NAMES[gender];
+  const target = list[Math.floor(Math.random() * list.length)];
+  const total = 26;
+  let i = Math.floor(Math.random() * list.length), step = 0;
+  $('slot').classList.add('spinning');
+  (function tick() {
+    step++;
+    const n = step >= total ? target : list[i = (i + 1) % list.length];
+    $('slotName').textContent = n.ko;
+    $('slotEng').textContent = n.en;
+    if (step < total) { setTimeout(tick, 45 + Math.pow(step / total, 3) * 380); return; }
+    $('slot').classList.remove('spinning');
+    $('slot').classList.add('done');
+    soldier = target;
+    $('nameResult').textContent = gender === 'F'
+      ? '당신은 이제 열여덟 살의 ' + target.ko + '입니다.'
+      : '당신은 이제 영국군 이등병 ' + target.ko + '입니다.';
+    $('spinBtn').style.display = 'none';
+    $('enterBtn').style.display = '';
+  })();
+};
+
+function soldierEntry() {
+  return gender === 'F'
+    ? { title: '나의 인물', choice: '여성 · ' + soldier.ko + ' (' + soldier.en + ')' }
+    : { title: '나의 병사', choice: '남성 · 이등병 ' + soldier.ko + ' (' + soldier.en + ')' };
+}
+
+function whoLabel() {
+  if (!soldier) return '';
+  return gender === 'F'
+    ? soldier.ko + ' (' + soldier.en + ') · 1896년생'
+    : '영국군 이등병 ' + soldier.ko + ' (' + soldier.en + ')';
+}
+
+function startFemale() {
+  $('freeze').classList.remove('show');   // 여성 시나리오는 빈 화면에서 시작
+  show('scene');
+  goTo(FEMALE_START);
+}
+
+$('enterBtn').onclick = () => {
+  path = [soldierEntry()];
+  if (gender === 'F') { startFemale(); return; }
+  if (SCENES[MALE_PROLOGUE]) {   // 남성: 프롤로그부터 (클릭 직후 재생 → 소리 있는 자동재생 허용)
+    $('freeze').classList.remove('show');
+    show('scene');
+    goTo(MALE_PROLOGUE);
+    return;
+  }
+  if (OPENING_VIDEO.trim()) {
+    show('opening');
+    startOpening();         // 클릭 이벤트 안에서 바로 재생 → 소리 있는 자동재생 허용
+  } else {
+    show('scene');
+    goTo(START_ID);
+  }
+};
+['sidInput', 'nameInput'].forEach(id =>
+  $(id).addEventListener('keydown', e => { if (e.key === 'Enter' && !$('startBtn').disabled) $('startBtn').click(); }));
+
+/* ===================== 프롤로그 건너뛰기 ===================== */
+const endingSeen = { M: false, F: false };   // 성별마다 결말을 한 번이라도 봤는지
+let skipVideoFor = null;                     // 이 장면은 영상 없이 바로 선택지로
+const sceneFrames = {};                      // 첫 선택 장면 영상의 마지막 장면 (건너뛰었을 때 배경)
+
+function prologueStart(g) { return g === 'F' ? FEMALE_START : MALE_PROLOGUE; }
+
+/* 지금 성별의 프롤로그 장면 ID들 (첫 선택 장면 전까지) */
+function prologueIds(g) {
+  const ids = {}, first = firstChoiceScene(prologueStart(g));
+  let id = prologueStart(g);
+  while (id && SCENES[id] && id !== first && !ids[id]) { ids[id] = true; id = SCENES[id].timeoutNext; }
+  return ids;
+}
+
+function updatePrologueSkip(id) {
+  $('prologueSkip').classList.toggle('show', !!endingSeen[gender] && !!prologueIds(gender)[id]);
+}
+
+function storeFrameIfFirstChoice(id) {
+  if (id !== firstChoiceScene(prologueStart(gender))) return;
+  const src = $('freeze');
+  if (!src.width) return;
+  const c = document.createElement('canvas');
+  c.width = src.width; c.height = src.height;
+  try { c.getContext('2d').drawImage(src, 0, 0); sceneFrames[id] = c; } catch (e) {}
+}
+
+function showStoredFrame(c) {
+  const f = $('freeze');
+  f.width = c.width; f.height = c.height;
+  f.getContext('2d').drawImage(c, 0, 0);
+  f.classList.add('show');
+}
+
+$('prologueSkip').onclick = () => {
+  $('prologueSkip').classList.remove('show');
+  sceneToken++;
+  clearTimer();
+  hidePanel();
+  stopMedia();
+  $('waitMsg').classList.remove('show');
+  const first = firstChoiceScene(prologueStart(gender)) || (gender === 'F' ? FEMALE_START : START_ID);
+  if (gender === 'M') {
+    // 오프닝 영상도 멈추고, 오프닝 마지막 장면 위에서 첫 선택
+    openingDone = true;
+    const ov = $('openVid');
+    ov.onended = ov.onerror = ov.onplaying = null;
+    ov.pause(); ov.removeAttribute('src'); ov.load();
+    $('openSkip').classList.remove('show');
+    restoreOpeningFrame();
+  } else {
+    $('freeze').classList.remove('show');
+  }
+  show('scene');
+  skipVideoFor = first;
+  goTo(first);
+};
+
+/* ===================== 장면 진행 ===================== */
+function goTo(id) {
+  const sc = SCENES[id];
+  if (!sc) { alert('장면 "' + id + '"을(를) 찾을 수 없어요. 시트의 다음 장면 ID를 확인하세요.'); return; }
+  const token = ++sceneToken;
+  current = sc;
+  enqueueVideos(nextVideos(id), true);   // 이 장면에서 고를 수 있는 다음 영상부터 먼저 받기
+  clearTimer();
+  hidePanel();
+  stopMedia();
+  $('sceneLabel').textContent = HIDE_LABEL_SCENES.indexOf(id) >= 0 ? '' : sc.title;
+  if ($('ending').classList.contains('active')) show('scene');
+
+  $('waitMsg').classList.remove('show');
+  updatePrologueSkip(id);
+
+  // 프롤로그를 건너뛰어 바로 선택지로 온 경우 → 영상 없이, 저장해 둔 마지막 장면 위에 선택지
+  const skipVideo = skipVideoFor === id;
+  skipVideoFor = null;
+  if (skipVideo) {
+    if (sceneFrames[id]) showStoredFrame(sceneFrames[id]);
+    afterVideo(token);
+    return;
+  }
+
+  const v = parseVideo(sc.video);
+  if (!v) { afterVideo(token); return; }
+
+  $('stage').classList.remove('dim');
+  // 아직 뒤에서 받는 중인 영상이면 → 다 받을 때까지 '불러오는 중' 표시 후 재생
+  if (v.type === 'mp4' && v.driveId && !mediaCache[v.driveId]) { waitForVideo(v, token); return; }
+  startSceneMedia(v, token);
+}
+
+function startSceneMedia(v, token) {
+  if (v.type === 'yt') playYT(v.id, token); else playMp4(v, token);
+  if (ALLOW_SKIP) setTimeout(() => { if (token === sceneToken && mediaType) $('skipBtn').classList.add('show'); }, SKIP_DELAY_MS);
+}
+
+function waitForVideo(v, token) {
+  const w = $('waitMsg');
+  w.textContent = '불러오는 중...';
+  w.classList.add('show');
+  const tick = setInterval(() => {
+    const p = loadProgress[v.driveId];
+    w.textContent = '불러오는 중...' + (p ? ' ' + Math.round(p * 100) + '%' : '');
+  }, 200);
+  loadDriveBlob(v.driveId)
+    .then(() => parseVideo(current.video))
+    .catch(() => v)                       // 실패하면 드라이브 주소로 직접 재생 시도
+    .then(info => {
+      clearInterval(tick);
+      if (token !== sceneToken) return;
+      w.classList.remove('show');
+      startSceneMedia(info, token);
+    });
+}
+
+function parseVideo(s) {
+  s = (s || '').trim();
+  if (!s) return null;
+  let m = s.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?(?:.*&)?v=|embed\/|shorts\/|live\/))([\w-]{11})/);
+  if (m) return { type: 'yt', id: m[1] };
+  if (/^[\w-]{11}$/.test(s)) return { type: 'yt', id: s };
+  m = s.match(/drive\.google\.com\/(?:file\/d\/|open\?id=|uc\?(?:.*&)?id=)([\w-]+)/);
+  if (m) return { type: 'mp4', url: mediaCache[m[1]] || driveMediaUrl(m[1]), driveId: m[1], key: m[1] };
+  if (/^https?:\/\//.test(s)) return { type: 'mp4', url: mediaCache[s] || s, key: s };
+  return null;
+}
+
+/* --- 유튜브 재생 --- */
+function playYT(id, token) {
+  mediaType = 'yt';
+  $('ytWrap').classList.add('show');
+  $('vid').classList.remove('show');
+  if (!ytReady) {
+    pendingYT = id;
+    setTimeout(() => { if (token === sceneToken && pendingYT) { pendingYT = null; videoFailed(token); } }, 8000);
+    return;
+  }
+  startYT(id, token);
+}
+
+function startYT(id, token) {
+  player.loadVideoById({ videoId: id });
+  if (player.isMuted && player.isMuted()) $('unmuteBtn').classList.add('show');
+  // 브라우저가 소리 있는 자동재생을 막으면 → 음소거로라도 재생하고 '소리 켜기' 버튼 표시
+  setTimeout(() => {
+    if (token !== sceneToken || mediaType !== 'yt') return;
+    const st = player.getPlayerState();
+    if (st !== YT.PlayerState.PLAYING && st !== YT.PlayerState.BUFFERING && st !== YT.PlayerState.ENDED) {
+      player.mute(); player.playVideo();
+      $('unmuteBtn').classList.add('show');
+    }
+  }, 1500);
+}
+
+/* --- mp4 재생 --- */
+function playMp4(info, token) {
+  mediaType = 'mp4';
+  const v = $('vid');
+  const isCurrent = () => token === sceneToken;
+  let triedDrive = false;
+  $('ytWrap').classList.remove('show');
+  v.classList.add('show');
+  v.onended = () => afterVideo(token);
+  v.onplaying = () => $('freeze').classList.remove('show');   // 새 영상이 나오면 멈춘 장면 치우기
+  v.onerror = () => {
+    if (!isCurrent()) return;
+    // 드라이브 직접 재생이 안 되면 → 서버(Apps Script)를 거쳐 불러오기
+    if (info.driveId && !triedDrive) {
+      triedDrive = true;
+      loadDriveBlob(info.driveId)
+        .then(u => { if (isCurrent()) startVideo(v, u, $('unmuteBtn'), isCurrent); })
+        .catch(() => videoFailed(token));
+    } else videoFailed(token);
+  };
+  startVideo(v, info.url, $('unmuteBtn'), isCurrent);
+}
+
+/* 소리 켠 채로 자동재생 시도 → 브라우저가 막으면 음소거로 재생 + '소리 켜기' 버튼 */
+function startVideo(v, src, unmuteBtn, isCurrent, onBlocked) {
+  v.muted = false;
+  v.src = src;
+  const p = v.play();
+  if (!p || !p.catch) return;
+  p.catch(err => {
+    if (!isCurrent() || !err || err.name !== 'NotAllowedError') return;
+    v.muted = true;
+    unmuteBtn.classList.add('show');
+    v.play().catch(e => {
+      if (isCurrent() && e && e.name === 'NotAllowedError' && onBlocked) onBlocked();
+    });
+  });
+}
+
+/* 구글 드라이브 영상을 Drive API(키)로 브라우저가 직접 받아 재생 가능한 주소로 만들기 */
+const mediaCache = {};   // 미리 불러온 영상 (드라이브 ID 또는 주소 → 재생용 blob 주소)
+const pendingLoads = {};
+const loadProgress = {};   // 영상별 받은 비율 (0~1)
+const LOAD_TRIES = 3;
+
+function driveMediaUrl(id) {
+  return 'https://www.googleapis.com/drive/v3/files/' + encodeURIComponent(id)
+    + '?alt=media&supportsAllDrives=true&key=' + encodeURIComponent(DRIVE_API_KEY);
+}
+
+async function downloadOnce(id, onProgress) {
+  const res = await fetch(driveMediaUrl(id));
+  if (!res.ok) throw new Error('영상을 받지 못했습니다 (' + res.status + ')');
+  const total = Number(res.headers.get('Content-Length')) || 0;
+  const type = res.headers.get('Content-Type') || 'video/mp4';
+  if (!res.body || !res.body.getReader) {   // 오래된 브라우저
+    const b = await res.blob();
+    return URL.createObjectURL(new Blob([b], { type }));
+  }
+  const reader = res.body.getReader(), parts = [];
+  let got = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    parts.push(value); got += value.length;
+    if (total) { loadProgress[id] = got / total; if (onProgress) onProgress(got / total); }
+  }
+  return URL.createObjectURL(new Blob(parts, { type }));
+}
+
+function loadDriveBlob(id, onProgress) {
+  if (mediaCache[id]) return Promise.resolve(mediaCache[id]);
+  if (pendingLoads[id]) return pendingLoads[id];
+  pendingLoads[id] = (async () => {
+    let lastErr;
+    for (let t = 0; t < LOAD_TRIES; t++) {
+      try { return (mediaCache[id] = await downloadOnce(id, onProgress)); }
+      catch (e) { lastErr = e; console.warn('영상 다시 받기', id, e); await new Promise(r => setTimeout(r, 1500)); }
+    }
+    throw lastErr;
+  })();
+  pendingLoads[id].catch(() => { delete pendingLoads[id]; });
+  return pendingLoads[id];
+}
+
+function stopMedia() {
+  mediaType = null;
+  pendingYT = null;
+  try { if (ytReady && player) player.stopVideo(); } catch (e) {}
+  const v = $('vid');
+  v.onended = null; v.onerror = null;
+  v.pause(); v.removeAttribute('src'); v.load();
+  $('skipBtn').classList.remove('show');
+}
+
+function videoFailed(token) {
+  if (token !== sceneToken) return;
+  flash('영상을 불러올 수 없어 다음으로 넘어갑니다');
+  setTimeout(() => afterVideo(token), 1400);
+}
+
+$('unmuteBtn').onclick = () => {
+  try { if (player && player.unMute) { player.unMute(); player.setVolume(100); } } catch (e) {}
+  $('vid').muted = false;
+  $('unmuteBtn').classList.remove('show');
+};
+
+$('skipBtn').onclick = () => {
+  const t = sceneToken;
+  if (mediaType === 'mp4') captureFrame($('vid'));
+  stopMedia();
+  afterVideo(t);
+};
+
+/* --- 영상의 마지막 장면을 캔버스에 멈춰 두기 (다음 선택지·장면 뒤 배경) --- */
+const openingFreeze = document.createElement('canvas');
+function captureFrame(v, isOpening) {
+  if (!v || !v.videoWidth) return;
+  const c = $('freeze');
+  c.width = v.videoWidth; c.height = v.videoHeight;
+  try {
+    c.getContext('2d').drawImage(v, 0, 0, c.width, c.height);
+    c.classList.add('show');
+    if (isOpening) {
+      openingFreeze.width = c.width; openingFreeze.height = c.height;
+      openingFreeze.getContext('2d').drawImage(c, 0, 0);
+    }
+  } catch (e) {}
+}
+function restoreOpeningFrame() {
+  const c = $('freeze');
+  if (!openingFreeze.width) { c.classList.remove('show'); return; }
+  c.width = openingFreeze.width; c.height = openingFreeze.height;
+  c.getContext('2d').drawImage(openingFreeze, 0, 0);
+  c.classList.add('show');
+}
+
+/* --- 영상이 끝난 뒤 --- */
+function afterVideo(token) {
+  if (token !== sceneToken) return;
+  const wasYT = mediaType === 'yt', wasMp4 = mediaType === 'mp4';
+  mediaType = null;
+  $('skipBtn').classList.remove('show');
+  if (wasMp4) { captureFrame($('vid')); storeFrameIfFirstChoice(current.id); }
+  if (wasYT) $('ytWrap').classList.remove('show');   // 유튜브 추천 영상 화면 가리기
+  if (current.ending) { showEndingPopup(); return; }
+  showPanel();
+}
+
+/* --- 결말: 큰 팝업 먼저 → '닫기' 누르면 결말 화면 --- */
+function showEndingPopup() {
+  endingSeen[gender] = true;   // 이 성별로 결말을 한 번 봤음 → 다음부터 프롤로그 건너뛰기 가능
+  $('stage').classList.add('dim');
+  $('popTitle').textContent = current.title;
+  $('popText').textContent = current.narration;
+  $('endPopup').classList.add('show');
+}
+$('popClose').onclick = () => {
+  $('endPopup').classList.remove('show');
+  showEnding();
+};
+
+/* ===================== 선택 패널 ===================== */
+function showPanel() {
+  $('stage').classList.add('dim');
+  $('sceneTitle').textContent = current.title;
+  $('choices').innerHTML = '';
+  $('typeHint').style.display = '';
+  $('panel').classList.add('show');
+  typewrite($('narration'), current.narration, () => {
+    $('typeHint').style.display = 'none';
+    renderChoices();
+    startTimer();
+  });
+}
+
+function hidePanel() {
+  typeToken++; typingSkip = null;
+  $('panel').classList.remove('show');
+  $('timer').classList.remove('show', 'urgent');
+}
+
+$('narration').onclick = () => { if (typingSkip) typingSkip(); };
+
+function typewrite(el, text, done) {
+  const t = ++typeToken;
+  let i = 0;
+  el.textContent = '';
+  const finish = () => { if (t !== typeToken) return; typeToken++; typingSkip = null; el.textContent = text; done(); };
+  typingSkip = finish;
+  (function step() {
+    if (t !== typeToken) return;
+    if (i >= text.length) { finish(); return; }
+    const ch = text[i++];
+    el.textContent += ch;
+    setTimeout(step, (ch === '.' || ch === '\n' || ch === '"') ? 260 : 32);
+  })();
+}
+
+function renderChoices() {
+  const box = $('choices');
+  box.innerHTML = '';
+  // 선택지 없이 다음 장면으로 이어지는 장면(프롤로그 등) → '다음' 버튼만
+  if (!current.choices.length && current.timeoutNext) {
+    const b = document.createElement('button');
+    b.className = 'continue';
+    b.textContent = '다음 ▶';
+    b.onclick = () => { b.disabled = true; continueTo(current.timeoutNext); };
+    box.appendChild(b);
+    setTimeout(() => b.classList.add('in'), 300);
+    // 다음 영상을 아직 받는 중이면 → 버튼에 준비 상황을 보여 주고, 다 받으면 '다음 ▶'으로
+    const nv = nextVideos(current.id)[0];
+    if (nv && nv.driveId && !mediaCache[nv.driveId]) {
+      const token = sceneToken;
+      b.disabled = true;
+      b.textContent = '다음 영상 준비 중...';
+      const tick = setInterval(() => {
+        if (token !== sceneToken || !b.isConnected) { clearInterval(tick); return; }
+        const p = loadProgress[nv.driveId];
+        b.textContent = '다음 영상 준비 중...' + (p ? ' ' + Math.round(p * 100) + '%' : '');
+      }, 300);
+      const ready = () => {
+        clearInterval(tick);
+        if (token !== sceneToken || !b.isConnected) return;
+        b.textContent = '다음 ▶';
+        b.disabled = false;
+      };
+      loadDriveBlob(nv.driveId).then(ready, ready);   // 실패해도 버튼은 열어 줌 (재생 때 다시 시도)
+    }
+    return;
+  }
+  current.choices.forEach((c, i) => {
+    const b = document.createElement('button');
+    b.className = 'choice';
+    b.textContent = c.text;
+    b.onclick = () => choose(c);
+    box.appendChild(b);
+    setTimeout(() => b.classList.add('in'), 40 + 140 * i);
+  });
+}
+
+function choose(c) {
+  document.querySelectorAll('.choice').forEach(b => b.disabled = true);
+  path.push({ title: current.title, choice: c.text });
+  goTo(c.next);           // 클릭 직후 동기적으로 다음 영상 재생
+}
+
+/* --- 제한 시간 --- */
+/* 이어지는 장면으로 넘어가기. 프롤로그가 끝나 첫 장면으로 갈 때는 오프닝 영상을 먼저 */
+function continueTo(next) {
+  if (next === START_ID && gender === 'M' && OPENING_VIDEO.trim() && !openingDone) {
+    show('opening');
+    startOpening();
+    return;
+  }
+  goTo(next);
+}
+
+function startTimer() {
+  if (!current.choices.length) return;   // 선택지 없는 장면은 제한시간 없음
+  const sec = current.timeLimit;
+  const next = current.timeoutNext;
+  if (!sec || !next) return;
+  const total = sec * 1000, end = Date.now() + total, token = sceneToken;
+  $('timer').classList.add('show');
+  timerId = setInterval(() => {
+    const left = Math.max(0, end - Date.now());
+    $('timerBar').style.width = (left / total * 100) + '%';
+    $('timerText').textContent = Math.ceil(left / 1000) + '초';
+    $('timer').classList.toggle('urgent', left <= 3000);
+    if (left <= 0) {
+      clearTimer();
+      if (token !== sceneToken) return;
+      document.querySelectorAll('.choice').forEach(b => b.disabled = true);
+      path.push({ title: current.title, choice: '(망설이다 아무것도 선택하지 못함)' });
+      flash('망설이는 사이…');
+      setTimeout(() => goTo(next), 1100);
+    }
+  }, 100);
+}
+
+function clearTimer() { if (timerId) { clearInterval(timerId); timerId = null; } }
+
+function flash(msg) {
+  const f = $('flash');
+  f.textContent = msg;
+  f.classList.add('show');
+  setTimeout(() => f.classList.remove('show'), 1000);
+}
+
+/* ===================== 결말 ===================== */
+function showEnding() {
+  $('endWho').textContent = whoLabel();
+  $('endTitle').textContent = current.title;
+  $('endNarration').textContent = current.narration;
+  $('endHistory').textContent = current.history;
+  $('historyCard').style.display = current.history ? '' : 'none';
+
+  const ol = $('endPath');
+  ol.innerHTML = '';
+  path.forEach(p => {
+    const li = document.createElement('li');
+    const b = document.createElement('b');
+    b.textContent = p.title;
+    li.appendChild(b);
+    li.appendChild(document.createTextNode(' — ' + p.choice));
+    ol.appendChild(li);
+  });
+
+  buildReflection();
+  $('submitMsg').textContent = '';
+  $('restartBtn').textContent = '답 저장하고 처음으로';
+  $('pdfBtn').textContent = '답 저장하고 PDF로 저장하기';
+  endingSaved = false;
+  updateEndButtons();
+  refreshCollectInfo();
+  show('ending');
+  $('ending').scrollTop = 0;
+}
+
+/* 결말별 '생각해 보기' 질문마다 답 칸 만들기 (시트 O열, 빈 줄로 질문 구분) */
+let endingSaved = false;
+function endingQuestions() {
+  return String(current.reflection || '').split(/\n\s*\n/).map(q => q.trim()).filter(Boolean);
+}
+function buildReflection() {
+  const box = $('reflectBox');
+  box.innerHTML = '';
+  const qs = endingQuestions();
+  if (!qs.length) return;
+  const h = document.createElement('p');
+  h.className = 'reflect-head';
+  h.textContent = '✍️ 생각해 보기';
+  box.appendChild(h);
+  qs.forEach((q, i) => {
+    const label = document.createElement('label');
+    label.className = 'reflect-q';
+    label.htmlFor = 'ra' + i;
+    label.textContent = q;
+    const ta = document.createElement('textarea');
+    ta.className = 'reflect-a';
+    ta.id = 'ra' + i;
+    ta.placeholder = '나의 생각을 써 보세요.';
+    ta.oninput = updateEndButtons;
+    box.appendChild(label);
+    box.appendChild(ta);
+  });
+}
+function reflectionAnswers() {
+  return [...document.querySelectorAll('.reflect-a')].map(t => t.value.trim());
+}
+function updateEndButtons() {
+  const ok = reflectionAnswers().every(a => a.length > 0);
+  $('restartBtn').disabled = !ok;
+  $('pdfBtn').disabled = !ok;
+  $('endHint').style.visibility = ok ? 'hidden' : 'visible';
+}
+/* 질문과 답을 한 덩어리 글로 ('기록' 시트 저장용) */
+function reflectionText() {
+  const qs = endingQuestions(), as = reflectionAnswers();
+  return qs.map((q, i) => q + '\n→ ' + (as[i] || '')).join('\n\n');
+}
+/* 답은 서버·시트에 저장하지 않고 이 브라우저 안에만 모아 둠 (탭을 닫으면 사라짐) */
+const ANSWER_KEY = 'trench_answers_v1';
+function loadAnswerStore() {
+  let st = null;
+  try { st = JSON.parse(sessionStorage.getItem(ANSWER_KEY) || 'null'); } catch (e) {}
+  if (!st || st.name !== studentName) st = { name: studentName, order: [], items: {} };   // 다른 학생이면 새로
+  return st;
+}
+let answerStore = null;
+function saveEndingAnswers() {
+  if (endingSaved) return Promise.resolve();
+  if (!answerStore || answerStore.name !== studentName) answerStore = loadAnswerStore();
+  const id = current.id;
+  if (!answerStore.items[id]) answerStore.order.push(id);
+  answerStore.items[id] = {   // 같은 결말을 다시 보면 최신 답으로 바꿈
+    endingTitle: current.title,
+    path: path.map(p => p.title + ' → ' + p.choice).join('\n'),
+    reflection: reflectionText()
+  };
+  try { sessionStorage.setItem(ANSWER_KEY, JSON.stringify(answerStore)); } catch (e) {}
+  endingSaved = true;
+  return Promise.resolve();
+}
+function savedEndings() {
+  if (!answerStore || answerStore.name !== studentName) answerStore = loadAnswerStore();
+  return answerStore.order.map(id => answerStore.items[id]);
+}
+function refreshCollectInfo() {
+  const list = savedEndings();
+  const all = Object.keys(SCENES).filter(id => SCENES[id].ending).length;
+  $('collectInfo').textContent = list.length
+    ? '저장한 결말 ' + list.length + '개 / 전체 ' + all + '개\n' + list.map(r => '· ' + r.endingTitle).join('\n')
+      + '\n\n답은 이 기기의 브라우저에만 잠시 보관돼요. 창을 닫기 전에 꼭 PDF로 내려받으세요.'
+    : '아직 저장한 결말이 없어요. 이 결말의 답을 저장하면 여기에 쌓여요. (전체 결말 ' + all + '개)';
+}
+
+/* 지금까지 이 브라우저에 모은 모든 결말의 답을 인쇄 창으로 열기 → 'PDF로 저장'
+   (서버를 전혀 거치지 않고 학생 기기 안에서만 처리) */
+function escHtml(x) {
+  return String(x).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>');
+}
+function openAnswerPrint() {
+  const list = savedEndings();
+  const now = new Date();
+  const stamp = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
+  const title = (studentName ? studentName + ' - ' : '') + '참호 속으로';
+  let html = '<!DOCTYPE html><html lang="ko"><head><meta charset="utf-8"><title>' + escHtml(title) + '</title>'
+    + '<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700&display=swap" rel="stylesheet">'
+    + '<style>body{font-family:"Noto Sans KR","Malgun Gothic",sans-serif;font-size:11pt;line-height:1.75;color:#222;max-width:760px;margin:24px auto;padding:0 20px}'
+    + 'h1{font-size:18pt;margin:0 0 4px}.sub{color:#666;margin-bottom:18px}'
+    + 'h2{font-size:13pt;border-bottom:2px solid #8a6d3b;padding-bottom:4px;margin:26px 0 8px;page-break-after:avoid}'
+    + '.path{color:#555;font-size:10pt;margin-bottom:8px}.tip{background:#f6f1e6;padding:10px 14px;font-size:10pt;margin-bottom:16px}'
+    + '@media print{.tip{display:none}}</style></head><body>'
+    + '<div class="tip">인쇄 창에서 대상(프린터)을 <b>\'PDF로 저장\'</b>으로 고르고 저장하세요.</div>'
+    + '<h1>참호 속으로 — 나의 결말과 생각</h1>'
+    + '<div class="sub">' + escHtml(studentName || '') + ' · 결말 ' + list.length + '개 · ' + stamp + '</div>';
+  list.forEach((r, i) => {
+    html += '<h2>' + (i + 1) + '. ' + escHtml(r.endingTitle) + '</h2>'
+      + '<div class="path"><b>나의 선택</b><br>' + escHtml(r.path) + '</div>'
+      + '<div>' + escHtml(r.reflection) + '</div>';
+  });
+  html += '<script>window.onload=function(){setTimeout(function(){window.print();},600);};<\/script></body></html>';
+  const w = window.open('', '_blank');
+  if (!w) return false;
+  w.document.open(); w.document.write(html); w.document.close();
+  return true;
+}
+$('pdfBtn').onclick = () => {
+  saveEndingAnswers().then(() => {
+    refreshCollectInfo();
+    const ok = openAnswerPrint();
+    $('submitMsg').textContent = ok
+      ? '새 창에서 인쇄 화면이 열렸어요. 대상(프린터)을 \'PDF로 저장\'으로 골라 저장하세요. 결말을 더 본 뒤 다시 누르면 모든 결말이 담긴 새 PDF를 만들 수 있어요.'
+      : '팝업이 막혀 있어요. 주소창 오른쪽의 팝업 차단 표시를 눌러 허용한 뒤 다시 눌러 주세요.';
+    $('pdfBtn').textContent = '다시 PDF로 저장하기';
+  });
+};
+
+/* '처음으로' → 답을 저장한 뒤 남성·여성 고르기부터 다시 (학번·이름은 그대로) */
+$('restartBtn').onclick = () => {
+  $('restartBtn').disabled = true; $('pdfBtn').disabled = true;
+  $('restartBtn').textContent = '저장 중…';
+  saveEndingAnswers().then(restartGame).catch(err => {
+    $('submitMsg').textContent = '저장 실패: ' + (err && err.message ? err.message : err) + ' — 다시 눌러 주세요.';
+    $('restartBtn').textContent = '답 저장하고 처음으로';
+    updateEndButtons();
+  });
+};
+function restartGame() {
+  sceneToken++;              // 진행 중이던 장면·타이머 무효화
+  clearTimer();
+  hidePanel();
+  stopMedia();
+  $('endPopup').classList.remove('show');
+  $('waitMsg').classList.remove('show');
+  $('stage').classList.remove('dim');
+  $('freeze').classList.remove('show');
+  path = [];
+  soldier = null;
+  openingDone = false;       // 남성은 프롤로그 → 오프닝부터 다시
+  $('openSkip').classList.remove('show');
+  $('openVid').classList.remove('show');
+  $('openLoading').style.display = '';
+  show('gender');
+}
+
+/* ===================== 오프닝 영상 ===================== */
+let openingDone = false;
+
+function startOpening() {
+  $('prologueSkip').classList.toggle('show', !!endingSeen[gender]);   // 남성 오프닝도 프롤로그로 취급
+  const info = parseVideo(OPENING_VIDEO);
+  if (!info || info.type !== 'mp4') { endOpening(); return; }
+
+  const v = $('openVid');
+  const isCurrent = () => !openingDone;
+  let started = false, triedDrive = false;
+
+  const askTap = () => {           // 저전력 모드 등으로 음소거 자동재생까지 막힌 드문 경우
+    $('openLoading').style.display = '';
+    $('openLoading').textContent = '화면을 눌러 시작하세요';
+  };
+
+  const viaDrive = () => {
+    if (openingDone) return;
+    if (triedDrive || !info.driveId) { endOpening(); return; }
+    triedDrive = true;
+    v.onerror = () => endOpening();
+    loadDriveBlob(info.driveId)
+      .then(u => { if (isCurrent()) startVideo(v, u, $('openUnmute'), isCurrent, askTap); })
+      .catch(() => endOpening());
+  };
+
+  v.onerror = viaDrive;
+  v.onplaying = () => {
+    started = true;
+    $('openLoading').style.display = 'none';
+    v.classList.add('show');
+    if (ALLOW_SKIP) setTimeout(() => { if (!openingDone) $('openSkip').classList.add('show'); }, SKIP_DELAY_MS);
+  };
+  v.onended = endOpening;
+
+  startVideo(v, info.url, $('openUnmute'), isCurrent, askTap);
+
+  // 12초 안에 재생이 시작되지 않으면 서버를 거쳐 다시 시도
+  setTimeout(() => {
+    if (started || openingDone || triedDrive || $('openLoading').textContent.indexOf('눌러') >= 0) return;
+    v.onerror = null; v.removeAttribute('src'); v.load();
+    viaDrive();
+  }, 12000);
+}
+
+function unmuteOpening() {
+  const v = $('openVid');
+  v.muted = false;
+  if (v.paused && v.getAttribute('src')) v.play().catch(() => {});
+  $('openUnmute').classList.remove('show');
+}
+
+// 화면 아무 곳이나 눌러도 소리가 켜짐 (컨트롤바 대신)
+$('openShield').onclick = unmuteOpening;
+$('openUnmute').onclick = unmuteOpening;
+$('openSkip').onclick = endOpening;
+
+function endOpening() {
+  if (openingDone) return;
+  openingDone = true;
+  $('prologueSkip').classList.remove('show');
+  const v = $('openVid');
+  v.onended = v.onerror = v.onplaying = null;
+  captureFrame(v, true);    // 오프닝 마지막 장면을 멈춰 두고 그 위에 첫 선택지
+  v.pause(); v.removeAttribute('src'); v.load();
+  show('scene');
+  goTo(START_ID);           // 오프닝이 끝나면 첫 장면으로
+}
+
+/* ===================== 불러오는 동안 보여 줄 1차 세계대전 이야기 ===================== */
+const LOAD_FACTS = [
+  '1914년 6월 28일, 보스니아의 사라예보에서 오스트리아 황태자 부부가 총에 맞아 숨졌어요. 총을 쏜 사람은 열아홉 살 청년 가브릴로 프린치프였죠. 이 사건을 계기로 나라들이 맺어 둔 동맹이 줄줄이 엮이면서, 한 달 남짓 만에 유럽 전체가 전쟁에 휘말렸답니다.',
+  '전쟁이 시작되자 사람들은 "크리스마스 전에는 끝날 거야!"라며 들뜬 마음으로 입대했어요. 영국에서는 같은 동네 친구나 직장 동료끼리 함께 입대하면 같은 부대에 보내 주는 \'친구 대대\'도 있었죠. 그런데 그 때문에 한 마을 청년들이 같은 날 한꺼번에 전사하는 비극이 생기기도 했어요.',
+  '1914년 크리스마스 이브, 독일군 참호에서 캐럴 \'고요한 밤\'이 들려왔어요. 영국군도 노래로 답했고, 다음 날 양쪽 병사들이 무인지대로 걸어 나와 악수를 하고 담배와 초콜릿을 주고받았대요. 함께 축구를 했다는 기록도 남아 있어요. 하지만 지휘관들은 이런 일이 다시는 일어나지 않도록 막았답니다.',
+  '서부전선의 참호는 벨기에 바닷가에서 스위스 국경까지 700km 넘게 이어졌어요. 서울에서 부산까지 거리의 두 배 가까이 되죠! 병사들은 이 길고 좁은 구덩이 속에서 먹고, 자고, 싸웠어요.',
+  '양쪽 참호 사이의 땅을 \'무인지대(No Man\'s Land)\'라고 불렀어요. 가까운 곳은 겨우 수십 미터 떨어져 있어서 적의 말소리가 들릴 정도였대요. 철조망과 포탄 구덩이가 가득해서, 다친 병사가 그곳에 쓰러지면 구하러 가기도 무척 어려웠어요.',
+  '참호 속은 늘 진흙탕이었어요. 고양이만큼 커다란 쥐들이 돌아다녔고, 옷에는 이가 득실거렸죠. 젖은 군화를 며칠씩 신고 있으면 발이 썩어 들어가는 \'참호족\'에 걸리기도 했어요. 그래서 병사들은 마른 양말 한 켤레를 무척 소중히 여겼대요.',
+  '1차 세계대전은 \'총력전\'이었어요. 군인만 싸운 게 아니라 나라의 모든 사람과 공장, 식량이 전쟁에 동원되었다는 뜻이에요. 남자들이 전쟁터로 떠난 자리에서 여성들은 공장에서 포탄을 만들고, 버스를 운전하고, 농사를 지었어요.',
+  '군수공장에서 포탄에 TNT를 채우던 여성들은 독한 화학물질 때문에 피부와 머리카락이 노랗게 변했어요. 그래서 노란 새에 빗대 \'카나리아 걸\'이라고 불렸죠. 노랗게 물든 엄마에게서 태어난 아기가 노란빛을 띠는 일도 있었대요.',
+  '1915년 4월, 벨기에 이프르에서 독일군이 처음으로 대규모 독가스 공격을 했어요. 누런 초록빛 염소가스 구름이 바람을 타고 참호로 밀려왔죠. 처음에는 방독면이 없어서, 병사들은 물이나 오줌을 적신 천으로 입과 코를 막기도 했대요.',
+  '탱크는 1916년 9월 솜 전투에서 처음 등장했어요. 개발할 때 적에게 정체를 숨기려고 \'물탱크\'라고 불렀는데, 그 이름이 그대로 굳어서 지금도 \'탱크\'라고 부른답니다. 하지만 처음 나온 탱크들은 고장이 잦아서 진흙에 빠져 멈추기 일쑤였어요.',
+  '솜 전투 첫날인 1916년 7월 1일, 영국군은 하루 만에 약 5만 7천 명의 사상자를 냈어요. 그중 약 1만 9천 명이 목숨을 잃었죠. 지금도 영국 군대 역사에서 가장 피해가 컸던 하루로 기억되고 있어요.',
+  '원래는 18살이 되어야 입대할 수 있었지만, 많은 소년들이 나이를 속이고 군대에 들어갔어요. 열두 살에 입대한 소년도 있었대요. 영국군에서만 미성년 병사가 약 25만 명이었던 것으로 추정돼요.',
+  '병사들에게 가장 큰 힘은 집에서 온 편지와 소포였어요. 전쟁 후반에는 영국에서 전선으로 한 주에 약 1,200만 통의 편지가 보내졌대요. 런던에서 부친 편지가 이틀이면 프랑스의 참호에 도착할 만큼 빨랐답니다.',
+  '통신이 끊긴 전쟁터에서는 비둘기가 소식을 전했어요. \'셰르 아미\'라는 비둘기는 총에 맞아 다리 하나를 잃고도 끝까지 날아가, 적에게 포위된 미군 병사 약 200명을 구하는 데 큰 역할을 했어요.',
+  '1차 세계대전으로 군인 약 900만 명, 민간인도 수백만 명이 목숨을 잃은 것으로 추정돼요. 살아 돌아온 병사들도 몸과 마음에 깊은 상처를 안고 살아야 했어요. 끝없는 포격 속에서 생긴 마음의 병을 사람들은 \'셸 쇼크\'라고 불렀죠.',
+  '1918년 11월 11일 오전 11시, 마침내 총성이 멈췄어요. 휴전 협정은 그날 새벽에 이미 서명되었지만, 11시까지 전투가 이어지는 바람에 마지막 몇 시간 동안에도 많은 병사가 목숨을 잃었어요.',
+  '영국 사람들이 11월이면 가슴에 빨간 양귀비꽃을 다는 걸 본 적 있나요? 포탄에 파헤쳐진 벨기에 플랑드르 들판에 양귀비가 가득 피어난 모습을 보고, 캐나다 군의관 존 매크레이가 시를 썼어요. 그 뒤로 양귀비는 전사자를 기리는 상징이 되었답니다.'
+];
+// 이야기마다 옆에 띄울 사진 (위키미디어 공용, 퍼블릭 도메인 · -1이면 사진 없음)
+const LOAD_IMAGE_URLS = [
+  'https://thumb.wikimedia.org/wikipedia/commons/thumb/e/ef/Franz_Ferdinand_%26_Sophie_Leave_Sarajevo_Guildhall.jpg/250px-Franz_Ferdinand_%26_Sophie_Leave_Sarajevo_Guildhall.jpg',
+  'https://thumb.wikimedia.org/wikipedia/commons/thumb/c/c0/Kitchener_poster_by_Alfred_Leete.jpg/250px-Kitchener_poster_by_Alfred_Leete.jpg',
+  'https://thumb.wikimedia.org/wikipedia/commons/thumb/4/4f/1914-es_kar%C3%A1csonyi_fegyversz%C3%BCnet.jpg/250px-1914-es_kar%C3%A1csonyi_fegyversz%C3%BCnet.jpg',
+  'https://thumb.wikimedia.org/wikipedia/commons/thumb/5/51/Western_front_1915-16.jpg/250px-Western_front_1915-16.jpg',
+  'https://thumb.wikimedia.org/wikipedia/commons/thumb/c/cb/Stretcher_bearers_Battle_of_Thiepval_Ridge_September_1916.jpg/250px-Stretcher_bearers_Battle_of_Thiepval_Ridge_September_1916.jpg',
+  'https://thumb.wikimedia.org/wikipedia/commons/thumb/f/fa/Cheshire_Regiment_trench_Somme_1916.jpg/250px-Cheshire_Regiment_trench_Somme_1916.jpg',
+  'https://thumb.wikimedia.org/wikipedia/commons/thumb/b/b9/Munition_workers_in_a_shell_warehouse_at_National_Shell_Filling_Factory_No.6%2C_Chilwell%2C_Nottinghamshire_in_1917._Q30018.jpg/250px-Munition_workers_in_a_shell_warehouse_at_National_Shell_Filling_Factory_No.6%2C_Chilwell%2C_Nottinghamshire_in_1917._Q30018.jpg',
+  'https://thumb.wikimedia.org/wikipedia/commons/thumb/4/43/Ethel_Gabain_-_A_Munition_Worker_-_9309.jpg/250px-Ethel_Gabain_-_A_Munition_Worker_-_9309.jpg',
+  'https://thumb.wikimedia.org/wikipedia/commons/thumb/3/34/Australian_infantry_small_box_respirators_Ypres_1917.jpg/250px-Australian_infantry_small_box_respirators_Ypres_1917.jpg',
+  'https://thumb.wikimedia.org/wikipedia/commons/thumb/f/f6/British_Mark_I_male_tank_Somme_25_September_1916.jpg/250px-British_Mark_I_male_tank_Somme_25_September_1916.jpg',
+  'https://thumb.wikimedia.org/wikipedia/commons/thumb/f/f5/Royal_Irish_Rifles_ration_party_Somme_July_1916.jpg/250px-Royal_Irish_Rifles_ration_party_Somme_July_1916.jpg',
+  'https://upload.wikimedia.org/wikipedia/commons/0/04/Sidney_George_Lewis.png',
+  'https://upload.wikimedia.org/wikipedia/commons/6/67/Cher_Ami.jpg',
+  'https://thumb.wikimedia.org/wikipedia/commons/thumb/4/43/Dressing_wounded_in_trench_during_the_battle_of_Courcelette._Sept._15%2C_1916.jpg/250px-Dressing_wounded_in_trench_during_the_battle_of_Courcelette._Sept._15%2C_1916.jpg',
+  'https://thumb.wikimedia.org/wikipedia/commons/thumb/0/0d/Armistice_Day_Celebrations%2C_London%2C_11_November_1918_Q65858.jpg/250px-Armistice_Day_Celebrations%2C_London%2C_11_November_1918_Q65858.jpg',
+  'https://thumb.wikimedia.org/wikipedia/commons/thumb/0/0e/In_Flanders_fields_and_other_poems%2C_handwritten.png/250px-In_Flanders_fields_and_other_poems%2C_handwritten.png'
+];
+const LOAD_FACT_IMG = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, -1, 12, 13, 14, 15];
+const factImgCache = {};
+
+/* 사진 받기: 먼저 위키미디어에서 바로 → 막혀 있으면 서버(Apps Script)를 거쳐서 */
+function loadFactImage(n) {
+  if (factImgCache[n]) return Promise.resolve(factImgCache[n]);
+  return new Promise((resolve, reject) => {
+    const url = LOAD_IMAGE_URLS[n];
+    const im = new Image();
+    let done = false;
+    const viaServer = () => {   // GitHub 버전: 서버가 없으니 사진 없이 글만
+      if (done) return; done = true;
+      reject(new Error('사진을 불러오지 못함'));
+    };
+    const t = setTimeout(viaServer, 6000);
+    im.onload = () => { if (done) return; done = true; clearTimeout(t); resolve(url); };
+    im.onerror = () => { clearTimeout(t); viaServer(); };
+    im.src = url;
+  }).then(src => (factImgCache[n] = src));
+}
+
+let factTimer = null, factShown = -1;
+function showFact(i) {
+  factShown = i;
+  $('loadFactText').textContent = LOAD_FACTS[i];
+  const img = $('loadFactImg'), n = LOAD_FACT_IMG[i];
+  img.classList.remove('show');
+  $('loadFactCredit').classList.remove('show');
+  $('loadFact').querySelector('.load-fact-body').classList.remove('has-img');
+  if (n == null || n < 0) return;
+  loadFactImage(n).then(src => {
+    if (factShown !== i) return;
+    img.src = src;
+    img.classList.add('show');
+    $('loadFactCredit').classList.add('show');
+    $('loadFact').querySelector('.load-fact-body').classList.add('has-img');
+  }).catch(() => {});   // 사진을 못 받으면 글만
+}
+function startLoadFacts() {
+  const order = LOAD_FACTS.map((_, i) => i).sort(() => Math.random() - 0.5);
+  let k = 0;
+  const box = $('loadFact');
+  const prefetch = j => { const n = LOAD_FACT_IMG[order[j % order.length]]; if (n >= 0) loadFactImage(n).catch(() => {}); };
+  showFact(order[0]);
+  prefetch(1);
+  factTimer = setInterval(() => {
+    box.classList.add('out');
+    setTimeout(() => {
+      k = (k + 1) % order.length;
+      showFact(order[k]);
+      box.classList.remove('out');
+      prefetch(k + 1);   // 다음 사진 미리 받기
+    }, 600);
+  }, 10000);   // 10초마다 다음 이야기
+}
+function stopLoadFacts() { if (factTimer) { clearInterval(factTimer); factTimer = null; } }
+
+/* ===================== 처음 불러오기 (장면 + 모든 영상) ===================== */
+function setLoad(ratio, detail) {
+  $('loadFill').style.width = Math.round(ratio * 100) + '%';
+  $('loadDetail').textContent = detail || '';
+}
+
+/* 서버 대신: 웹에 게시한 시트(CSV)에서 장면 읽기 */
+function parseCsv(text) {
+  const rows = []; let row = [], cell = '', q = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (q) {
+      if (ch === '"') { if (text[i + 1] === '"') { cell += '"'; i++; } else q = false; }
+      else cell += ch;
+    } else if (ch === '"') q = true;
+    else if (ch === ',') { row.push(cell); cell = ''; }
+    else if (ch === '\n' || ch === '\r') {
+      if (ch === '\r' && text[i + 1] === '\n') i++;
+      row.push(cell); rows.push(row); row = []; cell = '';
+    } else cell += ch;
+  }
+  if (cell !== '' || row.length) { row.push(cell); rows.push(row); }
+  return rows;
+}
+async function getScenes() {
+  const res = await fetch(SHEET_CSV_URL + (SHEET_CSV_URL.indexOf('?') >= 0 ? '&' : '?') + 't=' + Date.now());
+  if (!res.ok) throw new Error('장면 정보를 불러오지 못했습니다 (' + res.status + ')');
+  const values = parseCsv(await res.text());
+  const scenes = {}; let start = null;
+  for (let i = 1; i < values.length; i++) {
+    const r = values[i];
+    const id = String(r[0] || '').trim();
+    if (!id) continue;
+    const choices = [];
+    for (let c = 0; c < 3; c++) {
+      const text = String(r[4 + c * 2] || '').trim(), next = String(r[5 + c * 2] || '').trim();
+      if (text && next) choices.push({ text, next });
+    }
+    const timeoutNext = String(r[11] || '').trim();
+    const endingFlag = String(r[12] || '').trim().toUpperCase() === 'Y';
+    scenes[id] = {
+      id, title: String(r[1] || '').trim(), narration: String(r[2] || ''), video: String(r[3] || '').trim(),
+      choices, timeLimit: Number(r[10]) || 0, timeoutNext,
+      ending: endingFlag || (choices.length === 0 && !timeoutNext),
+      history: String(r[13] || ''), reflection: String(r[14] || '')
+    };
+    if (!start) start = id;
+  }
+  if (!start) throw new Error('장면이 없습니다.');
+  return { start, scenes };
+}
+
+function preloadUrl(url) {
+  if (mediaCache[url]) return Promise.resolve(mediaCache[url]);
+  if (pendingLoads[url]) return pendingLoads[url];
+  pendingLoads[url] = fetch(url)
+    .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.blob(); })
+    .then(b => (mediaCache[url] = URL.createObjectURL(b)));
+  pendingLoads[url].catch(() => { delete pendingLoads[url]; });
+  return pendingLoads[url];
+}
+
+async function boot() {
+  startLoadFacts();
+  try {
+    setLoad(0.05, '장면 정보를 불러오는 중');
+    const data = await getScenes();
+    SCENES = data.scenes; START_ID = data.start;
+
+    // 1) 남성·여성 프롤로그 영상을 모두 받은 뒤에야 시작
+    // 2) 학번·이름을 쓰는 동안 오프닝(남성 오프닝, 여성 첫 선택 장면 영상)부터
+    // 3) 그다음 선택지 영상들을 가까운 순서대로 뒤에서 계속 받기
+    const openingV = parseVideo(OPENING_VIDEO);
+    const maleFirst = firstChoiceScene(MALE_PROLOGUE), femaleFirst = firstChoiceScene(FEMALE_START);
+    const proV = pureProloguVideos(MALE_PROLOGUE).concat(pureProloguVideos(FEMALE_START));
+    const femaleOpeningV = femaleFirst && SCENES[femaleFirst] ? parseVideo(SCENES[femaleFirst].video) : null;
+    let first = proV.filter(v => v && v.type === 'mp4');
+    if (!first.length && openingV && openingV.type === 'mp4') first = [openingV];
+    if (first.length) {
+      const label = '영상을 불러오는 중';
+      const prog = first.map(() => 0);
+      const update = () => {
+        const p = prog.reduce((a, b) => a + b, 0) / first.length;
+        setLoad(0.1 + 0.85 * p, label + ' ' + Math.round(p * 100) + '%');
+      };
+      setLoad(0.1, label);
+      // 한 영상씩 차례로 받기 (동시에 받으면 서로 속도를 나눠 먹음)
+      for (let i = 0; i < first.length; i++) {
+        const v = first[i];
+        try {
+          if (v.driveId) await loadDriveBlob(v.driveId, p => { prog[i] = p; update(); });
+          else await preloadUrl(v.key);
+        } catch (e) {
+          console.warn('프롤로그 영상 미리 불러오기 실패 — 재생할 때 다시 시도합니다:', e);
+        }
+        prog[i] = 1; update();
+      }
+    }
+
+    if (document.fonts && document.fonts.ready) {
+      await Promise.race([document.fonts.ready, new Promise(r => setTimeout(r, 3000))]);
+    }
+
+    setLoad(1, '준비 완료');
+    $('startBtn').disabled = false;
+    $('startBtn').textContent = '다음';
+    setTimeout(() => { show('intro'); stopLoadFacts(); }, 400);
+    // 나머지 영상: 오프닝(남·녀) → 첫 선택 장면에서 가까운 것부터 차례로
+    enqueueVideos([openingV, femaleOpeningV].filter(Boolean)
+      .concat(scenesInOrder([maleFirst || START_ID, femaleFirst || FEMALE_START])));
+  } catch (err) {
+    $('loadText').textContent = '불러오기 실패';
+    $('loadDetail').textContent = (err && err.message) ? err.message : String(err);
+  }
+}
+
+/* ===================== 영상 뒤에서 받기 (우선순위 대기열) ===================== */
+const loadQueue = [];               // 아직 받기 시작하지 않은 영상 (앞쪽부터 받음)
+const MAX_PARALLEL_VIDEOS = 1;      // 한 번에 한 영상씩 → 바로 다음 영상이 속도를 다 씀
+let activeLoads = 0;
+
+function isLoadedOrLoading(v) { return !!(mediaCache[v.key] || pendingLoads[v.key]); }
+
+/* 영상 목록을 대기열에 넣기. front=true면 맨 앞으로 끌어옴 */
+function enqueueVideos(list, front) {
+  const add = list.filter(v => v && v.type === 'mp4' && v.key && !isLoadedOrLoading(v));
+  add.forEach(v => {
+    const i = loadQueue.findIndex(q => q.key === v.key);
+    if (i >= 0) loadQueue.splice(i, 1);
+  });
+  if (front) loadQueue.unshift(...add); else loadQueue.push(...add);
+  pumpQueue();
+}
+
+function pumpQueue() {
+  while (activeLoads < MAX_PARALLEL_VIDEOS && loadQueue.length) {
+    const v = loadQueue.shift();
+    if (isLoadedOrLoading(v)) continue;
+    activeLoads++;
+    (v.driveId ? loadDriveBlob(v.driveId) : preloadUrl(v.key))
+      .catch(e => console.warn('영상 뒤에서 불러오기 실패 — 재생할 때 다시 시도합니다:', e))
+      .then(() => { activeLoads--; pumpQueue(); });
+  }
+}
+
+/* 어떤 장면에서 바로 이어질 수 있는 장면들의 영상 */
+function nextVideos(id) {
+  const sc = SCENES[id];
+  if (!sc) return [];
+  const ids = sc.choices.map(c => c.next).concat(sc.timeoutNext ? [sc.timeoutNext] : []);
+  const list = ids.map(n => SCENES[n] && parseVideo(SCENES[n].video)).filter(Boolean);
+  if (!sc.choices.length && sc.timeoutNext === START_ID) list.unshift(parseVideo(OPENING_VIDEO));   // 프롤로그 끝 → 오프닝
+  return list.filter(Boolean);
+}
+
+/* 프롤로그 장면들의 영상 (순서대로, 첫 선택지 장면의 영상까지) */
+function prologueVideos(startId) {
+  const out = [], seen = {};
+  let id = startId || MALE_PROLOGUE;
+  while (id && SCENES[id] && id !== START_ID && !seen[id]) {
+    seen[id] = true;
+    const v = parseVideo(SCENES[id].video);
+    if (v) out.push(v);
+    id = SCENES[id].choices.length ? null : SCENES[id].timeoutNext;
+  }
+  return out;
+}
+
+/* 프롤로그가 끝나고 처음 선택지가 나오는 장면 ID */
+function firstChoiceScene(startId) {
+  const seen = {};
+  let id = startId;
+  while (id && SCENES[id] && !seen[id]) {
+    if (SCENES[id].choices.length || !SCENES[id].timeoutNext) return id;
+    seen[id] = true;
+    id = SCENES[id].timeoutNext;
+  }
+  return SCENES[id] ? id : null;
+}
+
+/* 선택지 없는 프롤로그 장면들의 영상만 (첫 선택 장면 영상은 빼고) */
+function pureProloguVideos(startId) {
+  const out = [], seen = {};
+  let id = startId;
+  while (id && SCENES[id] && !seen[id] && !SCENES[id].choices.length && SCENES[id].timeoutNext && id !== START_ID) {
+    seen[id] = true;
+    const v = parseVideo(SCENES[id].video);
+    if (v) out.push(v);
+    id = SCENES[id].timeoutNext;
+  }
+  return out;
+}
+
+/* 시작 장면에서 가까운 순서(단계별)로 모든 장면의 영상 나열 */
+function scenesInOrder(starts) {
+  const seen = {}, order = [], queue = starts.slice();
+  while (queue.length) {
+    const id = queue.shift();
+    if (!id || seen[id] || !SCENES[id]) continue;
+    seen[id] = true;
+    const v = parseVideo(SCENES[id].video);
+    if (v) order.push(v);
+    SCENES[id].choices.forEach(c => queue.push(c.next));
+    if (SCENES[id].timeoutNext) queue.push(SCENES[id].timeoutNext);
+  }
+  Object.keys(SCENES).forEach(id => {   // 어디서도 이어지지 않는 장면도 마지막에
+    if (!seen[id]) { const v = parseVideo(SCENES[id].video); if (v) order.push(v); }
+  });
+  return order;
+}
+
+boot();
+</script>
+</body>
+</html>
