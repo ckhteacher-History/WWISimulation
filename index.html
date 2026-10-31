@@ -376,7 +376,7 @@ const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTcaItXtR
 // 학번·이름 입력 후 '시작'을 누르면 재생되는 오프닝 영상 (구글 드라이브 주소 / mp4 주소, 비우면 오프닝 없이 시작)
 const FEMALE_START = 'FP01';  // 여성 시나리오 첫 장면 ID (시트, 여성 프롤로그 첫 장면)
 const MALE_PROLOGUE = 'P01';  // 남성 프롤로그 첫 장면 ID (시트에 없으면 프롤로그 없이 오프닝부터)
-const OPENING_VIDEO = 'https://drive.google.com/file/d/1nE9WwGfFBX0X13-GVhJZqQLkCv9rQ4Oi/view?usp=drive_link';
+const OPENING_VIDEO = 'https://ckhteacher-history.github.io/WWISimulation/videos/OPENING.mp4';
 const ALLOW_SKIP = false;       // 영상 '건너뛰기' 버튼 (false: 시나리오 영상은 끝까지 봐야 함)
 const SKIP_DELAY_MS = 3000;     // 영상 시작 후 건너뛰기 버튼이 나타나기까지
 const HIDE_LABEL_SCENES = ['F03'];   // 왼쪽 위 장면 이름을 숨길 장면 (결말 이름이 스포가 되는 경우)
@@ -663,7 +663,8 @@ function parseVideo(s) {
   if (/^[\w-]{11}$/.test(s)) return { type: 'yt', id: s };
   m = s.match(/drive\.google\.com\/(?:file\/d\/|open\?id=|uc\?(?:.*&)?id=)([\w-]+)/);
   if (m) return { type: 'mp4', url: mediaCache[m[1]] || driveMediaUrl(m[1]), driveId: m[1], key: m[1] };
-  if (/^https?:\/\//.test(s)) return { type: 'mp4', url: mediaCache[s] || s, key: s };
+  // 주소로 된 mp4 (예: 이 사이트의 videos/P01.mp4) → 드라이브 영상과 똑같이 미리 받아 두고 재생
+  if (/^https?:\/\//.test(s)) return { type: 'mp4', url: mediaCache[s] || s, driveId: s, key: s };
   return null;
 }
 
@@ -740,6 +741,7 @@ const loadProgress = {};   // 영상별 받은 비율 (0~1)
 const LOAD_TRIES = 3;
 
 function driveMediaUrl(id) {
+  if (/^https?:\/\//.test(id)) return id;   // 드라이브가 아닌 일반 주소는 그대로
   return 'https://www.googleapis.com/drive/v3/files/' + encodeURIComponent(id)
     + '?alt=media&supportsAllDrives=true&key=' + encodeURIComponent(DRIVE_API_KEY);
 }
