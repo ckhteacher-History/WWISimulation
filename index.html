@@ -127,6 +127,7 @@
   #scene{background:#000}
   #stage{position:absolute;inset:0;transition:filter .8s, opacity .8s}
   #stage.dim{filter:brightness(.35) blur(2px)}
+  #stage.fadeout{opacity:0}   /* 자동으로 이어지는 장면 사이: 검게 디졸브 */
   #ytWrap,#vid{position:absolute;inset:0;width:100%;height:100%;opacity:0;transition:opacity .5s;background:#000}
   #ytWrap.show,#vid.show{opacity:1}
   #ytWrap iframe{width:100%;height:100%;border:0}
@@ -609,6 +610,7 @@ function goTo(id) {
   if ($('ending').classList.contains('active')) show('scene');
 
   $('waitMsg').classList.remove('show');
+  $('stage').classList.remove('fadeout');   // 검은 화면에서 다음 영상이 서서히 나타남
   updatePrologueSkip(id);
 
   // 프롤로그를 건너뛰어 바로 선택지로 온 경우 → 영상 없이, 저장해 둔 마지막 장면 위에 선택지
@@ -830,6 +832,7 @@ function restoreOpeningFrame() {
 }
 
 /* --- 영상이 끝난 뒤 --- */
+const AUTO_FADE_MS = 1100;   // '자동' 장면: 검게 사라지는 시간
 function afterVideo(token) {
   if (token !== sceneToken) return;
   const wasYT = mediaType === 'yt', wasMp4 = mediaType === 'mp4';
@@ -838,6 +841,16 @@ function afterVideo(token) {
   if (wasMp4) { captureFrame($('vid')); storeFrameIfFirstChoice(current.id); }
   if (wasYT) $('ytWrap').classList.remove('show');   // 유튜브 추천 영상 화면 가리기
   if (current.ending) { showEndingPopup(); return; }
+  // M열 '자동' 장면 → 선택지·버튼 없이 검게 디졸브한 뒤 다음 영상으로 바로
+  if (current.auto && current.timeoutNext && !current.choices.length) {
+    $('stage').classList.add('fadeout');
+    setTimeout(() => {
+      if (token !== sceneToken) return;
+      $('freeze').classList.remove('show');
+      goTo(current.timeoutNext);
+    }, AUTO_FADE_MS);
+    return;
+  }
   showPanel();
 }
 
@@ -1370,6 +1383,7 @@ async function getScenes() {
       id, title: String(r[1] || '').trim(), narration: String(r[2] || ''), video: String(r[3] || '').trim(),
       choices, timeLimit: Number(r[10]) || 0, timeoutNext,
       ending: endingFlag || (choices.length === 0 && !timeoutNext),
+      auto: String(r[12] || '').trim() === '자동',
       history: String(r[13] || ''), reflection: String(r[14] || '')
     };
     if (!start) start = id;
