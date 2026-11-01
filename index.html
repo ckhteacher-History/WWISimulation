@@ -368,9 +368,8 @@
 
 <script>
 /* ===================== GitHub Pages 설정 ===================== */
-// 1) 구글 클라우드에서 만든 API 키 (Google Drive API만 허용 + 이 사이트 주소로 제한해 두세요)
-const DRIVE_API_KEY = 'AIzaSyAPBQ-8-wN-lpL1opdmKw8SghMEH-A_b3s';
-// 2) 구글 시트 '장면' 탭을 [파일 → 공유 → 웹에 게시 → CSV]로 게시한 주소
+// 영상은 이 저장소의 videos 폴더에 있습니다 (시트 영상 칸: https://ckhteacher-history.github.io/WWISimulation/videos/장면ID.mp4)
+// 구글 시트 '장면' 탭을 [파일 → 공유 → 웹에 게시 → CSV]로 게시한 주소
 const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTcaItXtRgW-zfnodHyhHXDcwMGqaP4RssERZ1O58JTCw1xqRzXtLzzYJBbc0Rf_SGL_fbPxQixamQ8/pub?gid=1103878976&single=true&output=csv';
 /* ===================== 설정 ===================== */
 // 학번·이름 입력 후 '시작'을 누르면 재생되는 오프닝 영상 (구글 드라이브 주소 / mp4 주소, 비우면 오프닝 없이 시작)
@@ -662,7 +661,8 @@ function parseVideo(s) {
   if (m) return { type: 'yt', id: m[1] };
   if (/^[\w-]{11}$/.test(s)) return { type: 'yt', id: s };
   m = s.match(/drive\.google\.com\/(?:file\/d\/|open\?id=|uc\?(?:.*&)?id=)([\w-]+)/);
-  if (m) return { type: 'mp4', url: mediaCache[m[1]] || driveMediaUrl(m[1]), driveId: m[1], key: m[1] };
+  // 드라이브 링크는 예비용: 미리 받지 않고 바로 재생만 시도 (영상은 videos 폴더에 올리는 것을 권장)
+  if (m) return { type: 'mp4', url: 'https://drive.google.com/uc?export=download&id=' + encodeURIComponent(m[1]), key: m[1] };
   // 주소로 된 mp4 (예: 이 사이트의 videos/P01.mp4) → 드라이브 영상과 똑같이 미리 받아 두고 재생
   if (/^https?:\/\//.test(s)) return { type: 'mp4', url: mediaCache[s] || s, driveId: s, key: s };
   return null;
@@ -734,17 +734,13 @@ function startVideo(v, src, unmuteBtn, isCurrent, onBlocked) {
   });
 }
 
-/* 구글 드라이브 영상을 Drive API(키)로 브라우저가 직접 받아 재생 가능한 주소로 만들기 */
+/* 영상을 미리 끝까지 받아 두고 재생용 blob 주소로 만들기 */
 const mediaCache = {};   // 미리 불러온 영상 (드라이브 ID 또는 주소 → 재생용 blob 주소)
 const pendingLoads = {};
 const loadProgress = {};   // 영상별 받은 비율 (0~1)
 const LOAD_TRIES = 3;
 
-function driveMediaUrl(id) {
-  if (/^https?:\/\//.test(id)) return id;   // 드라이브가 아닌 일반 주소는 그대로
-  return 'https://www.googleapis.com/drive/v3/files/' + encodeURIComponent(id)
-    + '?alt=media&supportsAllDrives=true&key=' + encodeURIComponent(DRIVE_API_KEY);
-}
+function driveMediaUrl(url) { return url; }   // 이제 영상은 모두 주소(videos 폴더)로 받음
 
 async function downloadOnce(id, onProgress) {
   const res = await fetch(driveMediaUrl(id));
