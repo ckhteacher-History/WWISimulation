@@ -34,6 +34,10 @@
   /* ── 불러오기 ── */
   #loading{align-items:center;justify-content:center;background:var(--bg)}
   .load-box{width:min(620px,90vw);text-align:center}
+  /* 결말 화면에서도 같은 역사 이야기 (성찰 질문을 쓰는 동안) */
+  #endFactSlot{text-align:center}
+  #endFactSlot:empty{display:none}
+  #endFactSlot .load-fact{margin-top:0;min-height:0}
   .load-text{font-family:'Nanum Myeongjo',serif;font-size:20px;letter-spacing:.2em;margin-bottom:18px;animation:breathe 1.6s ease-in-out infinite}
   @keyframes breathe{50%{opacity:.45}}
   .load-bar{height:3px;background:#2a241b;overflow:hidden}
@@ -437,6 +441,7 @@
     <div class="card" id="historyCard"><h3>📜 역사 속 사실</h3><p id="endHistory"></p></div>
     <div class="card"><h3>나의 선택</h3><ol id="endPath"></ol></div>
     <div id="endQuiz"></div>
+    <div id="endFactSlot" class="card"></div>
     <div id="reflectBox"></div>
     <p id="endHint">모든 질문에 답을 써야 다음으로 넘어갈 수 있어요.</p>
     <div class="row">
@@ -510,6 +515,7 @@ function show(id) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   $(id).classList.add('active');
   if (id !== 'scene' && id !== 'opening') $('prologueSkip').classList.remove('show');
+  if (id !== 'loading' && id !== 'ending') stopLoadFacts();   // 역사 이야기는 로딩·결말 화면에서만
 }
 
 /* 전체화면: 브라우저는 버튼을 누르는 순간에만 허용하므로 시작 버튼들에서 요청
@@ -1141,6 +1147,8 @@ function showEnding() {
   });
 
   buildEndQuiz();
+  $('endFactSlot').appendChild($('loadFact'));   // 로딩 화면의 '알고 있나요?'를 결말 화면으로 옮겨 계속 보여 줌
+  if (!factTimer) startLoadFacts();
   buildReflection();
   $('submitMsg').textContent = '';
   $('againBtn').textContent = '답 저장하고 다른 선택 해 보기';
