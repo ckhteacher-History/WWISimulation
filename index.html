@@ -2,7 +2,10 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
 <title>전쟁 속으로 — 1차 세계대전 선택형 시뮬레이션</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@400;700;800&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
@@ -115,7 +118,7 @@
     background:rgba(0,0,0,.55);padding:16px}
   .end-popup.show{display:flex;animation:popIn .6s ease}
   @keyframes popIn{from{opacity:0}to{opacity:1}}
-  .end-popup-box{width:min(640px,100%);text-align:center;padding:48px 28px 36px;
+  .end-popup-box{width:min(640px,100%);text-align:center;padding:48px 28px 36px;max-height:100%;overflow-y:auto;
     background:rgba(12,10,8,.92);border:1px solid var(--blood);box-shadow:0 0 60px rgba(158,31,31,.35)}
   .end-popup-box .ending-tag{margin-bottom:14px}
   #popTitle{font-family:'Nanum Myeongjo',serif;font-weight:800;font-size:clamp(34px,7vw,56px);
@@ -156,6 +159,7 @@
   #skipBtn{bottom:18px;right:18px;font-size:12px;opacity:.7}
 
   #panel{position:absolute;left:0;right:0;bottom:0;z-index:10;padding:40px 20px 34px;
+    max-height:100%;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;
     background:linear-gradient(to top,rgba(8,7,5,.98) 55%,rgba(8,7,5,0));
     transform:translateY(30px);opacity:0;pointer-events:none;transition:all .7s ease}
   #panel.show{transform:none;opacity:1;pointer-events:auto}
@@ -175,6 +179,34 @@
   @keyframes blink{50%{opacity:.3}}
 
   #choices{display:grid;gap:10px;margin-top:18px}
+
+  /* 가로로 눕힌 휴대폰처럼 화면 높이가 낮을 때: 글·선택지를 촘촘하게, 넘치면 위아래로 스크롤 */
+  @media (max-height:560px){
+    #panel{padding:18px 18px 16px;background:linear-gradient(to top,rgba(8,7,5,.97) 70%,rgba(8,7,5,.55))}
+    #sceneTitle{font-size:19px;margin-bottom:8px}
+    #narration{font-size:14px;line-height:1.7;min-height:0}
+    .hint{margin-top:2px}
+    #timer{margin-top:10px}
+    #choices{gap:6px;margin-top:10px}
+    .choice{padding:10px 14px;font-size:14px}
+    .continue{padding:8px 18px;font-size:14px}
+    #sceneLabel{top:10px;font-size:12px}
+    .end-popup-box{padding:22px 20px 18px}
+    #popTitle{font-size:30px;margin-bottom:10px}
+    #popText{font-size:14px;line-height:1.7;margin-bottom:16px}
+    /* 가운데 정렬 화면이 넘칠 때 위쪽이 잘리지 않게 */
+    #loading,#intro,#gender,#naming{align-items:flex-start;justify-content:flex-start}
+    #loading>*,#intro>*,#gender>*,#naming>*{margin:auto}
+  }
+
+  /* 휴대폰·패드를 세로로 들고 있을 때: 가로로 돌리라는 안내 */
+  #rotateHint{position:fixed;left:50%;bottom:calc(16px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:90;
+    display:none;align-items:center;gap:10px;width:max-content;max-width:calc(100vw - 24px);padding:10px 12px 10px 16px;
+    font-size:14px;line-height:1.5;color:var(--ink);background:rgba(12,10,8,.92);border:1px solid var(--accent);
+    box-shadow:0 6px 24px rgba(0,0,0,.6);word-break:keep-all}
+  #rotateHint svg{flex:none}
+  #rotateHint button{flex:none;width:32px;height:32px;border:0;background:transparent;color:var(--dim);font-size:18px}
+  @media (orientation:portrait) and (pointer:coarse){ body:not(.hint-off) #rotateHint{display:flex} }
   /* 프롤로그처럼 선택지 없이 이어지는 장면의 '다음' 버튼 */
   .continue{justify-self:end;padding:10px 22px;font-size:15px;letter-spacing:.15em;border:1px solid var(--line);
     background:rgba(0,0,0,.35);color:var(--dim);opacity:0;transition:opacity .6s, color .2s, border-color .2s}
@@ -235,6 +267,11 @@
 </div>
 
 <!-- 결말 팝업 -->
+<div id="rotateHint" role="status">
+  <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#c9a45c" stroke-width="1.6"><rect x="7" y="2" width="10" height="16" rx="2" transform="rotate(-30 12 10)"/><path d="M3 15a9 9 0 0 0 7 6"/><path d="M10 21l-2.5-.3.8-2.4"/></svg>
+  <span>화면을 회전시켜서 가로로 플레이하시면 더욱 좋아요!</span>
+  <button id="rotateHintClose" aria-label="안내 닫기">✕</button>
+</div>
 <div id="endPopup" class="end-popup">
   <div class="end-popup-box">
     <p class="ending-tag">ENDING</p>
@@ -437,7 +474,22 @@ function show(id) {
   if (id !== 'scene' && id !== 'opening') $('prologueSkip').classList.remove('show');
 }
 
+/* 전체화면: 브라우저는 버튼을 누르는 순간에만 허용하므로 시작 버튼들에서 요청
+   (아이폰 사파리는 웹페이지 전체화면을 지원하지 않아 그대로 진행) */
+function goFullscreen() {
+  const d = document, el = d.documentElement;
+  if (d.fullscreenElement || d.webkitFullscreenElement) return;
+  try {
+    const req = el.requestFullscreen || el.webkitRequestFullscreen;
+    if (!req) return;
+    const r = req.call(el, { navigationUI: 'hide' });
+    if (r && r.catch) r.catch(() => {});
+  } catch (e) {}
+}
+$('rotateHintClose').onclick = () => document.body.classList.add('hint-off');
+
 $('startBtn').onclick = () => {
+  goFullscreen();
   // 비워 두면 예시 샘플(30800 김천왕)로 시작
   const sid = $('sidInput').value.trim() || $('sidInput').placeholder;
   const name = $('nameInput').value.trim() || $('nameInput').placeholder;
@@ -529,6 +581,7 @@ function startFemale() {
 }
 
 $('enterBtn').onclick = () => {
+  goFullscreen();
   path = [soldierEntry()];
   if (gender === 'F') { startFemale(); return; }
   if (SCENES[MALE_PROLOGUE]) {   // 남성: 프롤로그부터 (클릭 직후 재생 → 소리 있는 자동재생 허용)
@@ -616,6 +669,7 @@ function goTo(id) {
   enqueueVideos(nextVideos(id), true);   // 이 장면에서 고를 수 있는 다음 영상부터 먼저 받기
   clearTimer();
   hidePanel();
+  $('panel').scrollTop = 0;
   stopMedia();
   $('sceneLabel').textContent = HIDE_LABEL_SCENES.indexOf(id) >= 0 ? '' : sc.title;
   if ($('ending').classList.contains('active')) show('scene');
@@ -917,12 +971,19 @@ function typewrite(el, text, done) {
     if (i >= text.length) { finish(); return; }
     const ch = text[i++];
     el.textContent += ch;
+    if (el.id === 'narration') keepPanelBottom();
     setTimeout(step, (ch === '.' || ch === '\n' || ch === '"') ? 260 : 32);
   })();
 }
 
+/* 글이 패널보다 길어지면 새로 나온 줄이 보이도록 아래로 (학생이 위로 올려 읽는 중이면 그대로) */
+function keepPanelBottom() {
+  const p = $('panel');
+  if (p.scrollHeight - p.clientHeight - p.scrollTop < 80) p.scrollTop = p.scrollHeight;
+}
 function renderChoices() {
   const box = $('choices');
+  setTimeout(() => { const p = $('panel'); if (p.scrollHeight > p.clientHeight) p.scrollTo({ top: p.scrollHeight, behavior: 'smooth' }); }, 120 + 140 * current.choices.length);
   box.innerHTML = '';
   // 선택지 없이 다음 장면으로 이어지는 장면(프롤로그 등) → '다음' 버튼만
   if (!current.choices.length && current.timeoutNext) {
