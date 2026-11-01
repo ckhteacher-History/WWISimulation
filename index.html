@@ -246,6 +246,35 @@
   .reflect-a:focus{border-color:var(--accent)}
   .btn:disabled{opacity:.4;cursor:not-allowed}
   #endHint{margin-top:10px;font-size:13px;color:var(--dim)}
+  /* ── 확인 문제(퀴즈) ── */
+  .quiz{border:1px solid var(--accent);background:rgba(201,164,92,.06);padding:18px 20px;margin-bottom:18px}
+  .quiz-tag{font-size:13px;letter-spacing:.15em;color:var(--accent);margin-bottom:10px;display:flex;justify-content:space-between;gap:10px}
+  .quiz-q{font-family:'Nanum Myeongjo',serif;font-size:17px;line-height:1.8;word-break:keep-all;margin-bottom:14px}
+  .quiz-opts{display:grid;gap:8px}
+  .quiz-opt{text-align:left;padding:12px 16px;font-size:15px;border:1px solid var(--line);background:rgba(42,36,27,.7);color:var(--ink)}
+  .quiz-opt:hover:not(:disabled){border-color:var(--accent)}
+  .quiz-opt.wrong{border-color:var(--blood);color:#d9a0a0}
+  .quiz-opt.right{border-color:var(--accent);background:rgba(201,164,92,.25);color:#fff}
+  .quiz-opt:disabled{cursor:default}
+  .quiz-in{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .quiz-in input{flex:1 1 160px;min-width:0;padding:12px 14px;font-size:16px;font-family:inherit;color:var(--ink);
+    background:rgba(255,255,255,.05);border:1px solid var(--line);outline:none}
+  .quiz-in input:focus{border-color:var(--accent)}
+  .quiz-in .suffix{font-size:16px}
+  .quiz-in button{flex:none;padding:12px 18px;font-size:15px;font-weight:700;border:none;background:var(--accent);color:#1a140c}
+  .quiz-in button:disabled{opacity:.5}
+  .quiz-fb{min-height:1.6em;margin-top:10px;font-size:14px;line-height:1.7;word-break:keep-all}
+  .quiz-fb.no{color:#ff8a8a}
+  .quiz-fb.yes{color:var(--accent)}
+  #quizOverlay{position:fixed;inset:0;z-index:85;display:none;align-items:flex-start;justify-content:center;
+    background:rgba(0,0,0,.78);padding:16px;overflow-y:auto}
+  #quizOverlay.show{display:flex}
+  .quiz-overlay-box{width:min(640px,100%);margin:auto;background:#14110c;border:1px solid var(--line);padding:26px 24px 22px}
+  .quiz-overlay-box h2{font-family:'Nanum Myeongjo',serif;font-size:22px;color:var(--accent);margin-bottom:6px}
+  .quiz-overlay-box .sub{font-size:13px;color:var(--dim);margin-bottom:18px;word-break:keep-all}
+  #quizNext{margin-top:6px;display:none}
+  #quizNext.show{display:block}
+
   #collectInfo{font-size:14px;line-height:1.8;color:#cfc6b2;white-space:pre-line}
   .row{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px}
   .row .btn{flex:1 1 220px}
@@ -271,6 +300,14 @@
   <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#c9a45c" stroke-width="1.6"><rect x="7" y="2" width="10" height="16" rx="2" transform="rotate(-30 12 10)"/><path d="M3 15a9 9 0 0 0 7 6"/><path d="M10 21l-2.5-.3.8-2.4"/></svg>
   <span>화면을 회전시켜서 가로로 플레이하시면 더욱 좋아요!</span>
   <button id="rotateHintClose" aria-label="안내 닫기">✕</button>
+</div>
+<div id="quizOverlay" role="dialog" aria-modal="true" aria-labelledby="quizOverlayTitle">
+  <div class="quiz-overlay-box">
+    <h2 id="quizOverlayTitle">전쟁 속으로 들어가기 전에</h2>
+    <p class="sub">수업에서 배운 내용을 확인해 볼까요? 두 문제를 모두 맞히면 1914년의 이야기가 이어집니다.</p>
+    <div id="quizOverlayBody"></div>
+    <button id="quizNext" class="btn">다음 문제</button>
+  </div>
 </div>
 <div id="endPopup" class="end-popup">
   <div class="end-popup-box">
@@ -399,6 +436,7 @@
     <p id="endNarration"></p>
     <div class="card" id="historyCard"><h3>📜 역사 속 사실</h3><p id="endHistory"></p></div>
     <div class="card"><h3>나의 선택</h3><ol id="endPath"></ol></div>
+    <div id="endQuiz"></div>
     <div id="reflectBox"></div>
     <p id="endHint">모든 질문에 답을 써야 다음으로 넘어갈 수 있어요.</p>
     <div class="row">
@@ -1033,6 +1071,11 @@ function choose(c) {
 /* --- 제한 시간 --- */
 /* 이어지는 장면으로 넘어가기. 프롤로그가 끝나 첫 장면으로 갈 때는 오프닝 영상을 먼저 */
 function continueTo(next) {
+  // 처음 보는 프롤로그가 끝나 첫 선택 장면으로 갈 때: 확인 문제 두 개를 먼저
+  if (next === firstChoiceScene(prologueStart(gender)) && !introQuizDone()) {
+    runIntroQuiz(() => continueTo(next));
+    return;
+  }
   if (next === START_ID && gender === 'M' && OPENING_VIDEO.trim() && !openingDone) {
     show('opening');
     startOpening();
@@ -1097,6 +1140,7 @@ function showEnding() {
     ol.appendChild(li);
   });
 
+  buildEndQuiz();
   buildReflection();
   $('submitMsg').textContent = '';
   $('againBtn').textContent = '답 저장하고 다른 선택 해 보기';
@@ -1107,6 +1151,138 @@ function showEnding() {
   refreshCollectInfo();
   show('ending');
   $('ending').scrollTop = 0;
+}
+
+/* ===================== 확인 문제 (교과서 내용) ===================== */
+const QUIZ = {
+  q1: { type: 'mc', text: '제1차 세계 대전이 일어나는 계기가 된 사건은 무엇일까요?',
+        options: ['사라예보 사건', '루시타니아호 침몰', '러시아 혁명', '베르사유 조약 체결'], answer: 0,
+        hint: '1914년 6월 28일, 세르비아 청년이 오스트리아·헝가리 제국의 황태자 부부를 암살한 사건이에요.',
+        explain: '사라예보 사건을 계기로 동맹을 맺은 나라들이 줄줄이 전쟁에 뛰어들었어요.' },
+  q2: { type: 'mc', text: '독일 중심의 3국 동맹에 맞서 영국이 맺은 3국 협상에 속하지 않는 나라는?',
+        options: ['영국', '프랑스', '러시아', '이탈리아'], answer: 3,
+        hint: '독일은 프랑스를 고립시키려고 오스트리아·헝가리 제국, 이탈리아와 3국 동맹을 맺었어요.',
+        explain: '이탈리아는 독일, 오스트리아·헝가리 제국과 함께 3국 동맹이었어요.' },
+  q3: { type: 'text', text: '서부 전선에서 적의 공격을 피하려고 땅을 파서 그 안에 몸을 숨기고 적을 공격한 전투 방식을 무엇이라고 할까요?',
+        answers: ['참호전'], ignoreSpace: true,
+        hint: '영어로는 trench(트렌치)라고 해요. 시뮬레이션에서 병사들이 있던 곳이에요.' },
+  q4: { type: 'text', text: '전쟁에서 이기려고 나라의 모든 자원과 인력을 동원한 전쟁을 무엇이라고 할까요? 여성은 군수 공장에서 일하고, 청소년도 전투에 나갔어요.',
+        answers: ['총력전'], ignoreSpace: true,
+        hint: '군인만이 아니라 나라 \'전체의 힘\'을 쏟아부은 전쟁이에요.' },
+  q5: { type: 'text', text: '독일이 영국으로 향하는 모든 배를 공격한 작전으로, 루시타니아호가 격침되면서 미국이 참전하는 계기가 된 것은? (OOO OOO 작전)',
+        answers: ['무제한 잠수함', '무제한 잠수함 작전'], ignoreSpace: false, suffix: '작전',
+        hint: '영국이 바닷길을 막자, 독일은 바닷속에서 배를 공격하는 작전으로 맞섰어요. 띄어쓰기도 확인하세요.' }
+};
+const INTRO_QUIZ = ['q1', 'q2'];                              // 처음 보는 프롤로그가 끝나면
+const ENDING_QUIZ = { E01: ['q3'], F01: ['q4'], F03: ['q5'] };  // 이 결말들에서
+
+/* 문제 하나: 맞히면 onCorrect(학생이 고른/쓴 답) — 틀리면 힌트를 보여 주고 다시 풀게 함 */
+function makeQuiz(key, label, onCorrect) {
+  const q = QUIZ[key];
+  const box = document.createElement('div');
+  box.className = 'quiz';
+  box.innerHTML = '<div class="quiz-tag"><span>📝 확인 문제</span><span></span></div><p class="quiz-q"></p><div class="quiz-body"></div><p class="quiz-fb" aria-live="polite"></p>';
+  box.querySelector('.quiz-tag span:last-child').textContent = label || '';
+  box.querySelector('.quiz-q').textContent = q.text;
+  const body = box.querySelector('.quiz-body'), fb = box.querySelector('.quiz-fb');
+  const right = (ans) => {
+    fb.className = 'quiz-fb yes';
+    fb.textContent = '정답이에요! ' + (q.explain || '');
+    onCorrect(ans);
+  };
+  const wrong = () => {
+    fb.className = 'quiz-fb no';
+    fb.textContent = '다시 생각해 보세요. 힌트: ' + q.hint;
+    box.classList.remove('shake'); void box.offsetWidth; box.classList.add('shake');
+  };
+  if (q.type === 'mc') {
+    const opts = document.createElement('div');
+    opts.className = 'quiz-opts';
+    q.options.forEach((t, i) => {
+      const b = document.createElement('button');
+      b.className = 'quiz-opt';
+      b.textContent = '①②③④⑤'[i] + ' ' + t;
+      b.onclick = () => {
+        if (i === q.answer) {
+          opts.querySelectorAll('button').forEach(x => x.disabled = true);
+          b.classList.add('right');
+          right(t);
+        } else { b.classList.add('wrong'); b.disabled = true; wrong(); }
+      };
+      opts.appendChild(b);
+    });
+    body.appendChild(opts);
+  } else {
+    const row = document.createElement('div');
+    row.className = 'quiz-in';
+    const inp = document.createElement('input');
+    inp.type = 'text'; inp.autocomplete = 'off'; inp.placeholder = '답을 써 보세요';
+    inp.setAttribute('aria-label', '답');
+    row.appendChild(inp);
+    if (q.suffix) { const sp = document.createElement('span'); sp.className = 'suffix'; sp.textContent = q.suffix; row.appendChild(sp); }
+    const ok = document.createElement('button');
+    ok.textContent = '확인';
+    row.appendChild(ok);
+    const norm = x => q.ignoreSpace ? x.replace(/\s+/g, '') : x.trim().replace(/\s+/g, ' ');
+    const check = () => {
+      const v = inp.value.trim();
+      if (!v) { inp.focus(); return; }
+      if (q.answers.some(a => norm(a) === norm(v))) {
+        inp.disabled = ok.disabled = true;
+        right(v + (q.suffix && !/작전$/.test(v) ? ' ' + q.suffix : ''));
+      } else wrong();
+    };
+    ok.onclick = check;
+    inp.addEventListener('keydown', e => { if (e.key === 'Enter') check(); });
+    body.appendChild(row);
+  }
+  return box;
+}
+
+/* 처음 보는 프롤로그가 끝나면: 1번 → 2번, 둘 다 맞혀야 이어서 플레이 */
+const INTRO_QUIZ_KEY = 'trench_intro_quiz_v1';
+function introQuizDone() {
+  try { return sessionStorage.getItem(INTRO_QUIZ_KEY) === studentName; } catch (e) { return false; }
+}
+function runIntroQuiz(onDone) {
+  const body = $('quizOverlayBody'), next = $('quizNext');
+  let k = 0;
+  const step = () => {
+    body.innerHTML = '';
+    next.classList.remove('show');
+    const last = k === INTRO_QUIZ.length - 1;
+    body.appendChild(makeQuiz(INTRO_QUIZ[k], (k + 1) + ' / ' + INTRO_QUIZ.length, () => {
+      next.textContent = last ? '1914년 속으로 ▶' : '다음 문제 ▶';
+      next.classList.add('show');
+      next.focus();
+    }));
+  };
+  next.onclick = () => {
+    if (k < INTRO_QUIZ.length - 1) { k++; step(); return; }
+    try { sessionStorage.setItem(INTRO_QUIZ_KEY, studentName); } catch (e) {}
+    $('quizOverlay').classList.remove('show');
+    onDone();   // 버튼 클릭 안에서 바로 이어 재생 → 소리 있는 자동재생 허용
+  };
+  step();
+  $('quizOverlay').classList.add('show');
+}
+
+/* 결말의 확인 문제: 다 맞혀야 답 저장·PDF·다른 결말 버튼이 열림 */
+let endQuizPassed = true, endQuizAnswers = [];
+function buildEndQuiz() {
+  const box = $('endQuiz');
+  box.innerHTML = '';
+  const keys = ENDING_QUIZ[current.id] || [];
+  endQuizAnswers = [];
+  endQuizPassed = !keys.length;
+  let left = keys.length;
+  keys.forEach((key, i) => {
+    box.appendChild(makeQuiz(key, keys.length > 1 ? (i + 1) + ' / ' + keys.length : '', ans => {
+      endQuizAnswers[i] = { q: QUIZ[key].text, a: ans };
+      if (--left === 0) endQuizPassed = true;
+      updateEndButtons();
+    }));
+  });
 }
 
 /* 결말별 '생각해 보기' 질문마다 답 칸 만들기 (시트 O열, 빈 줄로 질문 구분) */
@@ -1141,9 +1317,11 @@ function reflectionAnswers() {
   return [...document.querySelectorAll('.reflect-a')].map(t => t.value.trim());
 }
 function updateEndButtons() {
-  const ok = reflectionAnswers().every(a => a.length > 0);
+  const ok = endQuizPassed && reflectionAnswers().every(a => a.length > 0);
   $('againBtn').disabled = !ok;
   $('pdfBtn').disabled = !ok;
+  $('endHint').textContent = endQuizPassed ? '모든 질문에 답을 써야 다음으로 넘어갈 수 있어요.'
+    : '확인 문제를 맞히고, 모든 질문에 답을 써야 다음으로 넘어갈 수 있어요.';
   $('endHint').style.visibility = ok ? 'hidden' : 'visible';
   // '다른 성별의 삶 체험하기'는 지금 성별의 결말을 모두 보고 답까지 써야 열림 (지금 결말은 답을 다 쓰면 포함)
   const all = genderEndings(gender);
@@ -1191,6 +1369,7 @@ function saveEndingAnswers() {
     endingTitle: current.title,
     path: path.map(p => p.title + ' → ' + p.choice).join('\n'),
     reflection: reflectionText(),
+    quiz: endQuizAnswers.filter(Boolean),
     qa: (() => { const qs = endingQuestions(), as = reflectionAnswers();
                  return qs.map((q, i) => ({ q: String(q).replace(/^\s*\d+\s*[.)]\s*/, ''), a: as[i] || '' })); })()
   };
@@ -1215,6 +1394,12 @@ function refreshCollectInfo() {
    (서버를 전혀 거치지 않고 학생 기기 안에서만 처리) */
 function escHtml(x) {
   return String(x).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>');
+}
+/* 결말의 확인 문제 (맞힌 답) */
+function quizHtml(r) {
+  if (!r.quiz || !r.quiz.length) return '';
+  return '<div class="quizp"><b>확인 문제</b>' + r.quiz.map(x =>
+    '<div>' + escHtml(x.q) + '<br><span class="qa-ok">✔ ' + escHtml(x.a) + '</span></div>').join('') + '</div>';
 }
 /* 성찰 질문과 답: Q / A (질문이 여러 개면 Q1·A1, Q2·A2 …) */
 function qaHtml(r) {
@@ -1241,6 +1426,7 @@ function openAnswerPrint() {
     + 'h2{font-size:13pt;border-bottom:2px solid #8a6d3b;padding-bottom:4px;margin:26px 0 8px;page-break-after:avoid}'
     + '.qa{margin:10px 0 14px;page-break-inside:avoid}.qa .row{display:flex;gap:10px}.qa .lab{flex:none;width:30px;font-weight:700}'
     + '.qa .q{color:#333;font-weight:700}.qa .q .lab{color:#8a6d3b}.qa .a{margin-top:4px;padding:8px 12px;background:#faf8f3;border-left:0;border:1px solid #e3dccd;border-radius:4px}.qa .a .lab{color:#555}.qa .empty{color:#999}'
+    + '.quizp{font-size:10pt;color:#444;margin:4px 0 12px;padding:8px 12px;border:1px dashed #c9b88f}.quizp div{margin-top:4px}.qa-ok{color:#2f6b2f;font-weight:700}'
     + '.path{color:#555;font-size:10pt;margin-bottom:8px}.tip{background:#f6f1e6;padding:10px 14px;font-size:10pt;margin-bottom:16px}'
     + '@media print{.tip{display:none}}</style></head><body>'
     + '<div class="tip">인쇄 창에서 대상(프린터)을 <b>\'PDF로 저장\'</b>으로 고르고 저장하세요.</div>'
@@ -1249,7 +1435,7 @@ function openAnswerPrint() {
   list.forEach((r, i) => {
     html += '<h2>' + (i + 1) + '. ' + escHtml(r.endingTitle) + '</h2>'
       + '<div class="path"><b>나의 선택</b><br>' + escHtml(r.path) + '</div>'
-      + qaHtml(r);
+      + quizHtml(r) + qaHtml(r);
   });
   html += '<script>window.onload=function(){setTimeout(function(){window.print();},600);};<\/script></body></html>';
   const w = window.open('', '_blank');
