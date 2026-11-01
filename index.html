@@ -250,6 +250,7 @@
   .reflect-a:focus{border-color:var(--accent)}
   .btn:disabled{opacity:.4;cursor:not-allowed}
   #endHint{margin-top:10px;font-size:13px;color:var(--dim)}
+  #autosaveNote{margin-top:10px;font-size:13px;line-height:1.7;color:var(--accent);word-break:keep-all}
   /* ── 확인 문제(퀴즈) ── */
   .quiz{border:1px solid var(--accent);background:rgba(201,164,92,.06);padding:18px 20px;margin-bottom:18px}
   .quiz-tag{font-size:13px;letter-spacing:.15em;color:var(--accent);margin-bottom:10px;display:flex;justify-content:space-between;gap:10px}
@@ -442,13 +443,14 @@
     <div id="endQuiz"></div>
     <div id="endFactSlot" class="card"></div>
     <div id="reflectBox"></div>
+    <p id="autosaveNote">✔ 작성한 답은 이 브라우저에 자동으로 저장돼요. 창을 닫으면 사라지니, 끝나기 전에 꼭 'PDF로 저장하기'로 내려받아 제출하세요.</p>
     <p id="endHint">모든 질문에 답을 써야 다음으로 넘어갈 수 있어요.</p>
     <div class="row">
-      <button id="againBtn" class="btn" disabled>답 저장하고 다른 선택 해 보기</button>
-      <button id="pdfBtn" class="btn ghost" disabled>답 저장하고 PDF로 저장하기</button>
+      <button id="againBtn" class="btn" disabled>다른 선택 해 보기</button>
+      <button id="pdfBtn" class="btn ghost" disabled>PDF로 저장하기</button>
     </div>
     <div class="row">
-      <button id="restartBtn" class="btn ghost" disabled>답 저장하고 다른 성별의 삶 체험하기</button>
+      <button id="restartBtn" class="btn ghost" disabled>다른 성별의 삶 체험하기</button>
     </div>
     <p id="switchHint"></p>
     <p id="submitMsg"></p>
@@ -741,7 +743,8 @@ function goTo(id) {
 
 function startSceneMedia(v, token) {
   if (v.type === 'yt') playYT(v.id, token); else playMp4(v, token);
-  if (ALLOW_SKIP) setTimeout(() => { if (token === sceneToken && mediaType) $('skipBtn').classList.add('show'); }, SKIP_DELAY_MS);
+  // 이 브라우저에서 끝까지 본 적 있는 영상만 '건너뛰기' 가능
+  if (videoSeen(current.video)) setTimeout(() => { if (token === sceneToken && mediaType) $('skipBtn').classList.add('show'); }, 600);
 }
 
 function waitForVideo(v, token) {
@@ -910,9 +913,24 @@ $('unmuteBtn').onclick = () => {
   $('unmuteBtn').classList.remove('show');
 };
 
+/* 한 번 끝까지 본 영상 기록 (이 브라우저 창을 닫으면 사라짐) */
+const SEEN_KEY = 'trench_seen_videos_v1';
+function seenList() { try { return JSON.parse(sessionStorage.getItem(SEEN_KEY) || '[]'); } catch (e) { return []; } }
+function videoSeen(url) { url = String(url || '').trim(); return !!url && seenList().indexOf(url) >= 0; }
+function markVideoSeen(url) {
+  url = String(url || '').trim();
+  if (!url) return;
+  const l = seenList();
+  if (l.indexOf(url) < 0) { l.push(url); try { sessionStorage.setItem(SEEN_KEY, JSON.stringify(l)); } catch (e) {} }
+}
+
 $('skipBtn').onclick = () => {
   const t = sceneToken;
-  if (mediaType === 'mp4') captureFrame($('vid'));
+  $('skipBtn').classList.remove('show');
+  const v = $('vid');
+  // 영상 끝으로 바로 이동 → 마지막 장면이 멈춘 채로 선택지가 나옴
+  if (mediaType === 'mp4' && isFinite(v.duration) && v.duration > 0.3) { v.currentTime = v.duration - 0.05; if (v.paused) v.play().catch(() => {}); return; }
+  if (mediaType === 'mp4') captureFrame(v);
   stopMedia();
   afterVideo(t);
 };
@@ -945,6 +963,7 @@ const AUTO_FADE_MS = 1100;   // '자동' 장면: 검게 사라지는 시간
 function afterVideo(token) {
   if (token !== sceneToken) return;
   const wasYT = mediaType === 'yt', wasMp4 = mediaType === 'mp4';
+  if (wasYT || wasMp4) markVideoSeen(current.video);
   mediaType = null;
   $('skipBtn').classList.remove('show');
   if (wasMp4) {
@@ -1152,9 +1171,9 @@ function showEnding() {
   if (!factTimer) startLoadFacts();
   buildReflection();
   $('submitMsg').textContent = '';
-  $('againBtn').textContent = '답 저장하고 다른 선택 해 보기';
-  $('restartBtn').textContent = '답 저장하고 다른 성별의 삶 체험하기';
-  $('pdfBtn').textContent = '답 저장하고 PDF로 저장하기';
+  $('againBtn').textContent = '다른 선택 해 보기';
+  $('restartBtn').textContent = '다른 성별의 삶 체험하기';
+  $('pdfBtn').textContent = 'PDF로 저장하기';
   endingSaved = false;
   updateEndButtons();
   refreshCollectInfo();
@@ -1290,6 +1309,7 @@ function buildEndQuiz() {
       endQuizAnswers[i] = { q: QUIZ[key].text, a: ans };
       if (--left === 0) endQuizPassed = true;
       updateEndButtons();
+      autoSaveSoon();
     }));
   });
 }
@@ -1317,10 +1337,16 @@ function buildReflection() {
     ta.className = 'reflect-a';
     ta.id = 'ra' + i;
     ta.placeholder = '나의 생각을 써 보세요.';
-    ta.oninput = updateEndButtons;
+    ta.oninput = () => { updateEndButtons(); autoSaveSoon(); };
     box.appendChild(label);
     box.appendChild(ta);
   });
+}
+/* 답을 쓰는 동안 잠시 멈추면 이 브라우저에 자동 저장 */
+let autoSaveTimer = null;
+function autoSaveSoon() {
+  clearTimeout(autoSaveTimer);
+  autoSaveTimer = setTimeout(() => { saveEndingAnswers(); refreshCollectInfo(); }, 600);
 }
 function reflectionAnswers() {
   return [...document.querySelectorAll('.reflect-a')].map(t => t.value.trim());
@@ -1365,7 +1391,6 @@ function loadAnswerStore() {
 }
 let answerStore = null;
 function saveEndingAnswers() {
-  if (endingSaved) return Promise.resolve();
   if (!answerStore || answerStore.name !== studentName) answerStore = loadAnswerStore();
   const id = current.id;
   if (!answerStore.items[id]) answerStore.order.push(id);
@@ -1550,9 +1575,9 @@ function startOpening() {
     started = true;
     $('openLoading').style.display = 'none';
     v.classList.add('show');
-    if (ALLOW_SKIP) setTimeout(() => { if (!openingDone) $('openSkip').classList.add('show'); }, SKIP_DELAY_MS);
+    if (videoSeen(OPENING_VIDEO)) setTimeout(() => { if (!openingDone) $('openSkip').classList.add('show'); }, 600);
   };
-  v.onended = endOpening;
+  v.onended = () => { markVideoSeen(OPENING_VIDEO); endOpening(); };
 
   startVideo(v, info.url, $('openUnmute'), isCurrent, askTap);
 
@@ -1574,7 +1599,12 @@ function unmuteOpening() {
 // 화면 아무 곳이나 눌러도 소리가 켜짐 (컨트롤바 대신)
 $('openShield').onclick = unmuteOpening;
 $('openUnmute').onclick = unmuteOpening;
-$('openSkip').onclick = endOpening;
+$('openSkip').onclick = () => {
+  $('openSkip').classList.remove('show');
+  const v = $('openVid');
+  if (isFinite(v.duration) && v.duration > 0.3) { v.currentTime = v.duration - 0.05; if (v.paused) v.play().catch(() => {}); return; }
+  endOpening();
+};
 
 function endOpening() {
   if (openingDone) return;
