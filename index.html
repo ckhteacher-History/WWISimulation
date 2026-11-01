@@ -496,8 +496,8 @@ $('spinBtn').onclick = () => {
     $('slot').classList.add('done');
     soldier = target;
     $('nameResult').textContent = gender === 'F'
-      ? '당신은 이제 열여덟 살의 ' + target.ko + '입니다.'
-      : '당신은 이제 영국군 이등병 ' + target.ko + '입니다.';
+      ? '당신은 이제 스물다섯 살의 ' + target.ko + '입니다.'
+      : '당신은 이제 스물다섯 살의 영국군 이등병 ' + target.ko + '입니다.';
     $('spinBtn').style.display = 'none';
     $('enterBtn').style.display = '';
   })();
@@ -512,7 +512,7 @@ function soldierEntry() {
 function whoLabel() {
   if (!soldier) return '';
   return gender === 'F'
-    ? soldier.ko + ' (' + soldier.en + ') · 1896년생'
+    ? soldier.ko + ' (' + soldier.en + ') · 1889년생'
     : '영국군 이등병 ' + soldier.ko + ' (' + soldier.en + ')';
 }
 
