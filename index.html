@@ -283,11 +283,11 @@
     <div class="fields">
       <div class="field">
         <label for="sidInput">학번</label>
-        <input id="sidInput" placeholder="30800" inputmode="numeric" maxlength="10" autocomplete="off">
+        <input id="sidInput" placeholder="20101" inputmode="numeric" maxlength="10" autocomplete="off">
       </div>
       <div class="field">
         <label for="nameInput">이름</label>
-        <input id="nameInput" placeholder="김천왕" maxlength="20" autocomplete="off">
+        <input id="nameInput" placeholder="김철수" maxlength="20" autocomplete="off">
       </div>
     </div>
     <button id="startBtn" class="btn" disabled>불러오는 중…</button>
@@ -1123,7 +1123,9 @@ function saveEndingAnswers() {
   answerStore.items[id] = {   // 같은 결말을 다시 보면 최신 답으로 바꿈
     endingTitle: current.title,
     path: path.map(p => p.title + ' → ' + p.choice).join('\n'),
-    reflection: reflectionText()
+    reflection: reflectionText(),
+    qa: (() => { const qs = endingQuestions(), as = reflectionAnswers();
+                 return qs.map((q, i) => ({ q: String(q).replace(/^\s*\d+\s*[.)]\s*/, ''), a: as[i] || '' })); })()
   };
   try { sessionStorage.setItem(ANSWER_KEY, JSON.stringify(answerStore)); } catch (e) {}
   endingSaved = true;
@@ -1147,6 +1149,19 @@ function refreshCollectInfo() {
 function escHtml(x) {
   return String(x).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>');
 }
+/* 성찰 질문과 답: Q / A (질문이 여러 개면 Q1·A1, Q2·A2 …) */
+function qaHtml(r) {
+  if (!r.qa || !r.qa.length) return '<div>' + escHtml(r.reflection || '') + '</div>';   // 예전에 저장한 답
+  const multi = r.qa.length > 1;
+  return r.qa.map((x, i) => {
+    const n = multi ? String(i + 1) : '';
+    const ans = String(x.a || '').trim();
+    return '<div class="qa">'
+      + '<div class="row q"><span class="lab">Q' + n + '.</span><span>' + escHtml(x.q) + '</span></div>'
+      + '<div class="row a"><span class="lab">A' + n + '.</span><span' + (ans ? '' : ' class="empty"') + '>' + (ans ? escHtml(ans) : '(답을 쓰지 않았어요)') + '</span></div>'
+      + '</div>';
+  }).join('');
+}
 function openAnswerPrint() {
   const list = savedEndings();
   const now = new Date();
@@ -1157,6 +1172,8 @@ function openAnswerPrint() {
     + '<style>body{font-family:"Noto Sans KR","Malgun Gothic",sans-serif;font-size:11pt;line-height:1.75;color:#222;max-width:760px;margin:24px auto;padding:0 20px}'
     + 'h1{font-size:18pt;margin:0 0 4px}.sub{color:#666;margin-bottom:18px}'
     + 'h2{font-size:13pt;border-bottom:2px solid #8a6d3b;padding-bottom:4px;margin:26px 0 8px;page-break-after:avoid}'
+    + '.qa{margin:10px 0 14px;page-break-inside:avoid}.qa .row{display:flex;gap:10px}.qa .lab{flex:none;width:30px;font-weight:700}'
+    + '.qa .q{color:#333;font-weight:700}.qa .q .lab{color:#8a6d3b}.qa .a{margin-top:4px;padding:8px 12px;background:#faf8f3;border-left:0;border:1px solid #e3dccd;border-radius:4px}.qa .a .lab{color:#555}.qa .empty{color:#999}'
     + '.path{color:#555;font-size:10pt;margin-bottom:8px}.tip{background:#f6f1e6;padding:10px 14px;font-size:10pt;margin-bottom:16px}'
     + '@media print{.tip{display:none}}</style></head><body>'
     + '<div class="tip">인쇄 창에서 대상(프린터)을 <b>\'PDF로 저장\'</b>으로 고르고 저장하세요.</div>'
@@ -1165,7 +1182,7 @@ function openAnswerPrint() {
   list.forEach((r, i) => {
     html += '<h2>' + (i + 1) + '. ' + escHtml(r.endingTitle) + '</h2>'
       + '<div class="path"><b>나의 선택</b><br>' + escHtml(r.path) + '</div>'
-      + '<div>' + escHtml(r.reflection) + '</div>';
+      + qaHtml(r);
   });
   html += '<script>window.onload=function(){setTimeout(function(){window.print();},600);};<\/script></body></html>';
   const w = window.open('', '_blank');
