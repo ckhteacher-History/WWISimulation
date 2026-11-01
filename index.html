@@ -212,8 +212,9 @@
   .btn:disabled{opacity:.4;cursor:not-allowed}
   #endHint{margin-top:10px;font-size:13px;color:var(--dim)}
   #collectInfo{font-size:14px;line-height:1.8;color:#cfc6b2;white-space:pre-line}
-  .row{display:flex;gap:10px;margin-top:14px}
-  .row .btn{flex:1}
+  .row{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px}
+  .row .btn{flex:1 1 220px}
+  #switchHint{margin-top:8px;font-size:13px;color:var(--dim);min-height:1.2em}
   .btn.ghost{background:transparent;border:1px solid var(--line);color:var(--ink)}
   .credit{margin-top:40px;text-align:center;font-size:12px;letter-spacing:.1em;color:var(--dim)}
   #submitMsg{margin-top:12px;font-size:14px;color:var(--accent);min-height:1.4em}
@@ -313,7 +314,7 @@
     <div id="slot" class="slot"><div id="slotName">? ? ?</div><div id="slotEng"></div></div>
     <p id="nameResult"></p>
     <button id="spinBtn" class="btn">이름 설정하기</button>
-    <button id="enterBtn" class="btn" style="display:none">참호로 들어간다</button>
+    <button id="enterBtn" class="btn" style="display:none">1914년으로</button>
   </div>
 </section>
 
@@ -358,9 +359,13 @@
     <div id="reflectBox"></div>
     <p id="endHint">모든 질문에 답을 써야 다음으로 넘어갈 수 있어요.</p>
     <div class="row">
-      <button id="restartBtn" class="btn" disabled>답 저장하고 처음으로</button>
+      <button id="againBtn" class="btn" disabled>답 저장하고 다른 선택 해 보기</button>
       <button id="pdfBtn" class="btn ghost" disabled>답 저장하고 PDF로 저장하기</button>
     </div>
+    <div class="row">
+      <button id="restartBtn" class="btn ghost" disabled>답 저장하고 다른 성별의 삶 체험하기</button>
+    </div>
+    <p id="switchHint"></p>
     <p id="submitMsg"></p>
     <div class="card" style="margin-top:24px"><h3>📚 지금까지 본 결말</h3><p id="collectInfo">불러오는 중…</p></div>
     <p class="credit">© 2026 역사교사 최경환 제작</p>
@@ -463,7 +468,7 @@ function openNaming(g) {
   gender = g;
   if (g === 'F') enqueueVideos(prologueVideos(FEMALE_START), true);   // 여성 프롤로그·오프닝 영상부터 먼저 받기
   soldier = null;
-  $('enterBtn').textContent = g === 'F' ? '1914년으로' : '참호로 들어간다';
+  $('enterBtn').textContent = '1914년으로';
   $('slot').className = 'slot';
   $('slotName').textContent = '? ? ?';
   $('slotEng').textContent = '';
@@ -1015,7 +1020,8 @@ function showEnding() {
 
   buildReflection();
   $('submitMsg').textContent = '';
-  $('restartBtn').textContent = '답 저장하고 처음으로';
+  $('againBtn').textContent = '답 저장하고 다른 선택 해 보기';
+  $('restartBtn').textContent = '답 저장하고 다른 성별의 삶 체험하기';
   $('pdfBtn').textContent = '답 저장하고 PDF로 저장하기';
   endingSaved = false;
   updateEndButtons();
@@ -1057,9 +1063,31 @@ function reflectionAnswers() {
 }
 function updateEndButtons() {
   const ok = reflectionAnswers().every(a => a.length > 0);
-  $('restartBtn').disabled = !ok;
+  $('againBtn').disabled = !ok;
   $('pdfBtn').disabled = !ok;
   $('endHint').style.visibility = ok ? 'hidden' : 'visible';
+  // '다른 성별의 삶 체험하기'는 지금 성별의 결말을 모두 보고 답까지 써야 열림 (지금 결말은 답을 다 쓰면 포함)
+  const all = genderEndings(gender);
+  if (!answerStore || answerStore.name !== studentName) answerStore = loadAnswerStore();
+  const done = all.filter(id => answerStore.items[id] || (id === current.id && ok)).length;
+  const allDone = all.length > 0 && done === all.length;
+  $('restartBtn').disabled = !(ok && allDone);
+  $('switchHint').textContent = allDone ? ''
+    : '다른 성별의 삶 체험하기는 ' + (gender === 'F' ? '여성' : '남성') + ' 결말 ' + all.length + '개를 모두 보고 답을 쓰면 열려요. (지금 ' + done + ' / ' + all.length + ')';
+}
+/* 이 성별로 갈 수 있는 결말 ID 목록 */
+function genderEndings(g) {
+  const seen = {}, out = [], q = [g === 'F' ? FEMALE_START : (SCENES[MALE_PROLOGUE] ? MALE_PROLOGUE : START_ID)];
+  while (q.length) {
+    const id = q.shift();
+    if (!id || seen[id] || !SCENES[id]) continue;
+    seen[id] = true;
+    const sc = SCENES[id];
+    if (sc.ending) { out.push(id); continue; }
+    sc.choices.forEach(c => q.push(c.next));
+    if (sc.timeoutNext) q.push(sc.timeoutNext);
+  }
+  return out;
 }
 /* 질문과 답을 한 덩어리 글로 ('기록' 시트 저장용) */
 function reflectionText() {
@@ -1144,16 +1172,46 @@ $('pdfBtn').onclick = () => {
   });
 };
 
-/* '처음으로' → 답을 저장한 뒤 남성·여성 고르기부터 다시 (학번·이름은 그대로) */
-$('restartBtn').onclick = () => {
-  $('restartBtn').disabled = true; $('pdfBtn').disabled = true;
-  $('restartBtn').textContent = '저장 중…';
-  saveEndingAnswers().then(restartGame).catch(err => {
-    $('submitMsg').textContent = '저장 실패: ' + (err && err.message ? err.message : err) + ' — 다시 눌러 주세요.';
-    $('restartBtn').textContent = '답 저장하고 처음으로';
-    updateEndButtons();
+/* '다른 선택 해 보기' → 답을 저장한 뒤 같은 인물로 오프닝(남성: 오프닝 영상, 여성: 첫 선택 장면 영상)부터 다시 */
+$('againBtn').onclick = () => {
+  $('againBtn').disabled = true; $('restartBtn').disabled = true; $('pdfBtn').disabled = true;
+  saveEndingAnswers().then(() => {
+    resetPlay();
+    path = [soldierEntry()];
+    if (gender === 'M' && OPENING_VIDEO.trim()) {
+      show('opening');
+      startOpening();          // 버튼 클릭 안에서 바로 재생 → 소리 있는 자동재생 허용
+    } else {
+      show('scene');
+      goTo(firstChoiceScene(prologueStart(gender)) || (gender === 'F' ? FEMALE_START : START_ID));
+    }
   });
 };
+/* '다른 성별의 삶 체험하기' → 답을 저장한 뒤 다른 성별의 이름 뽑기부터 (성별 고르기·학번·이름 입력은 건너뜀) */
+$('restartBtn').onclick = () => {
+  $('againBtn').disabled = true; $('restartBtn').disabled = true; $('pdfBtn').disabled = true;
+  saveEndingAnswers().then(() => {
+    const next = gender === 'F' ? 'M' : 'F';
+    resetPlay();
+    soldier = null;
+    openNaming(next);
+  });
+};
+/* 진행 중이던 장면·영상 정리 (인물은 그대로) */
+function resetPlay() {
+  sceneToken++;
+  clearTimer();
+  hidePanel();
+  stopMedia();
+  $('endPopup').classList.remove('show');
+  $('waitMsg').classList.remove('show');
+  $('stage').classList.remove('dim', 'fadeout');
+  $('freeze').classList.remove('show');
+  openingDone = false;
+  $('openSkip').classList.remove('show');
+  $('openVid').classList.remove('show');
+  $('openLoading').style.display = '';
+}
 function restartGame() {
   sceneToken++;              // 진행 중이던 장면·타이머 무효화
   clearTimer();
