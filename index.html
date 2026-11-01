@@ -1332,14 +1332,9 @@ function updateEndButtons() {
   $('endHint').textContent = endQuizPassed ? '모든 질문에 답을 써야 다음으로 넘어갈 수 있어요.'
     : '확인 문제를 맞히고, 모든 질문에 답을 써야 다음으로 넘어갈 수 있어요.';
   $('endHint').style.visibility = ok ? 'hidden' : 'visible';
-  // '다른 성별의 삶 체험하기'는 지금 성별의 결말을 모두 보고 답까지 써야 열림 (지금 결말은 답을 다 쓰면 포함)
-  const all = genderEndings(gender);
-  if (!answerStore || answerStore.name !== studentName) answerStore = loadAnswerStore();
-  const done = all.filter(id => answerStore.items[id] || (id === current.id && ok)).length;
-  const allDone = all.length > 0 && done === all.length;
-  $('restartBtn').disabled = !(ok && allDone);
-  $('switchHint').textContent = allDone ? ''
-    : '다른 성별의 삶 체험하기는 ' + (gender === 'F' ? '여성' : '남성') + ' 결말 ' + all.length + '개를 모두 보고 답을 쓰면 열려요. (지금 ' + done + ' / ' + all.length + ')';
+  // '다른 성별의 삶 체험하기'도 지금 결말의 확인 문제·답만 다 쓰면 바로 열림
+  $('restartBtn').disabled = !ok;
+  $('switchHint').textContent = '';
 }
 /* 이 성별로 갈 수 있는 결말 ID 목록 */
 function genderEndings(g) {
