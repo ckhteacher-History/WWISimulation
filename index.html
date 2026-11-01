@@ -253,7 +253,7 @@
   /* ── 확인 문제(퀴즈) ── */
   .quiz{border:1px solid var(--accent);background:rgba(201,164,92,.06);padding:18px 20px;margin-bottom:18px}
   .quiz-tag{font-size:13px;letter-spacing:.15em;color:var(--accent);margin-bottom:10px;display:flex;justify-content:space-between;gap:10px}
-  .quiz-q{font-family:'Nanum Myeongjo',serif;font-size:17px;line-height:1.8;word-break:keep-all;margin-bottom:14px}
+  .quiz-q{font-family:'Nanum Myeongjo',serif;font-size:17px;line-height:1.8;word-break:keep-all;margin-bottom:14px;white-space:pre-line}
   .quiz-opts{display:grid;gap:8px}
   .quiz-opt{text-align:left;padding:12px 16px;font-size:15px;border:1px solid var(--line);background:rgba(42,36,27,.7);color:var(--ink)}
   .quiz-opt:hover:not(:disabled){border-color:var(--accent)}
@@ -1171,13 +1171,13 @@ const QUIZ = {
         options: ['영국', '프랑스', '러시아', '이탈리아'], answer: 3,
         hint: '독일은 프랑스를 고립시키려고 오스트리아·헝가리 제국, 이탈리아와 3국 동맹을 맺었어요.',
         explain: '이탈리아는 독일, 오스트리아·헝가리 제국과 함께 3국 동맹이었어요.' },
-  q3: { type: 'text', text: '서부 전선에서 적의 공격을 피하려고 땅을 파서 그 안에 몸을 숨기고 적을 공격한 전투 방식을 무엇이라고 할까요?',
+  q3: { type: 'text', text: '1차대전 당시 서부 전선에서 주로 진행된 전투 방식으로, 적의 공격을 피하기 위해 땅을 파서 몸을 숨기고 적을 공격하는 전투 방식은?',
         answers: ['참호전'], ignoreSpace: true,
         hint: '영어로는 trench(트렌치)라고 해요. 시뮬레이션에서 병사들이 있던 곳이에요.' },
-  q4: { type: 'text', text: '전쟁에서 이기려고 나라의 모든 자원과 인력을 동원한 전쟁을 무엇이라고 할까요? 여성은 군수 공장에서 일하고, 청소년도 전투에 나갔어요.',
+  q4: { type: 'text', text: '빈칸에 들어갈 말은 무엇인가요?\n제1차 세계대전의 참전국들은 전쟁에서 승리하기 위해 국가의 가능한 모든 자원과 인력을 동원하는 OOO을 펼쳤다.',
         answers: ['총력전'], ignoreSpace: true,
         hint: '군인만이 아니라 나라 \'전체의 힘\'을 쏟아부은 전쟁이에요.' },
-  q5: { type: 'text', text: '독일이 영국으로 향하는 모든 배를 공격한 작전으로, 루시타니아호가 격침되면서 미국이 참전하는 계기가 된 것은? (OOO OOO 작전)',
+  q5: { type: 'text', text: '빈칸에 들어갈 말은 무엇인가요?\n영국은 바닷길을 막아 독일의 물자 공급을 차단하는 작전을 펼쳤고, 독일은 이에 맞서 영국으로 향하는 모든 배를 공격하는 OOO OOO 작전을 전개하였다. 이로 인해 루시타니아 호가 격침되면서 미국이 제1차 세계 대전에 참전하는 계기가 되었다.',
         answers: ['무제한 잠수함', '무제한 잠수함 작전'], ignoreSpace: true, suffix: '작전',
         hint: '영국이 바닷길을 막자, 독일은 바닷속에서 배를 공격하는 작전으로 맞섰어요.' }
 };
