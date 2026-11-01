@@ -30,25 +30,26 @@
 
   /* ── 불러오기 ── */
   #loading{align-items:center;justify-content:center;background:var(--bg)}
-  .load-box{width:min(520px,86vw);text-align:center}
+  .load-box{width:min(620px,90vw);text-align:center}
   .load-text{font-family:'Nanum Myeongjo',serif;font-size:20px;letter-spacing:.2em;margin-bottom:18px;animation:breathe 1.6s ease-in-out infinite}
   @keyframes breathe{50%{opacity:.45}}
   .load-bar{height:3px;background:#2a241b;overflow:hidden}
   #loadFill{height:100%;width:0;background:var(--accent);transition:width .4s}
   #loadDetail{margin-top:12px;font-size:12px;color:var(--dim);min-height:1.2em}
   /* 불러오는 동안 보여 주는 1차 세계대전 이야기 */
-  .load-fact{margin-top:42px;min-height:11em;transition:opacity .6s}
+  .load-fact{margin-top:32px;min-height:11em;transition:opacity .6s}
   .load-fact.out{opacity:0}
   .load-fact-tag{font-size:11px;letter-spacing:.3em;color:var(--accent);margin-bottom:10px}
   .load-fact-text{font-family:'Nanum Myeongjo',serif;font-size:15px;line-height:1.9;color:var(--ink);word-break:keep-all}
-  .load-fact-body{display:flex;gap:18px;align-items:flex-start;justify-content:center}
-  .load-fact-body.has-img{text-align:left}
-  #loadFactImg{width:104px;height:104px;object-fit:cover;flex:none;border:1px solid var(--line);
-    filter:sepia(.35) grayscale(.2) contrast(1.05);display:none;margin-top:6px}
+  /* 사진은 이야기 위에 크게 */
+  .load-fact-body{display:flex;flex-direction:column;gap:14px;align-items:center;justify-content:center}
+  #loadFactImg{max-width:100%;max-height:min(280px,34vh);width:auto;height:auto;border:1px solid var(--line);
+    filter:sepia(.35) grayscale(.2) contrast(1.05);display:none}
+  #loadFactImg.color{filter:none}
   #loadFactImg.show{display:block}
   .load-fact-credit{margin-top:10px;font-size:10px;color:var(--dim);opacity:0;transition:opacity .4s}
   .load-fact-credit.show{opacity:.7}
-  @media (max-width:480px){#loadFactImg{width:76px;height:76px} .load-fact-body{gap:12px}}
+  @media (max-width:480px){#loadFactImg{max-height:200px} .load-fact-body{gap:10px}}
 
   /* 영상 컨트롤바 완전히 숨기기 (크롬·사파리 공통) */
   video::-webkit-media-controls,
@@ -1263,23 +1264,26 @@ const LOAD_FACTS = [
 ];
 // 이야기마다 옆에 띄울 사진 (위키미디어 공용, 퍼블릭 도메인 · -1이면 사진 없음)
 const LOAD_IMAGE_URLS = [
-  'https://thumb.wikimedia.org/wikipedia/commons/thumb/e/ef/Franz_Ferdinand_%26_Sophie_Leave_Sarajevo_Guildhall.jpg/250px-Franz_Ferdinand_%26_Sophie_Leave_Sarajevo_Guildhall.jpg',
-  'https://thumb.wikimedia.org/wikipedia/commons/thumb/c/c0/Kitchener_poster_by_Alfred_Leete.jpg/250px-Kitchener_poster_by_Alfred_Leete.jpg',
-  'https://thumb.wikimedia.org/wikipedia/commons/thumb/4/4f/1914-es_kar%C3%A1csonyi_fegyversz%C3%BCnet.jpg/250px-1914-es_kar%C3%A1csonyi_fegyversz%C3%BCnet.jpg',
-  'https://thumb.wikimedia.org/wikipedia/commons/thumb/5/51/Western_front_1915-16.jpg/250px-Western_front_1915-16.jpg',
-  'https://thumb.wikimedia.org/wikipedia/commons/thumb/c/cb/Stretcher_bearers_Battle_of_Thiepval_Ridge_September_1916.jpg/250px-Stretcher_bearers_Battle_of_Thiepval_Ridge_September_1916.jpg',
-  'https://thumb.wikimedia.org/wikipedia/commons/thumb/f/fa/Cheshire_Regiment_trench_Somme_1916.jpg/250px-Cheshire_Regiment_trench_Somme_1916.jpg',
-  'https://thumb.wikimedia.org/wikipedia/commons/thumb/b/b9/Munition_workers_in_a_shell_warehouse_at_National_Shell_Filling_Factory_No.6%2C_Chilwell%2C_Nottinghamshire_in_1917._Q30018.jpg/250px-Munition_workers_in_a_shell_warehouse_at_National_Shell_Filling_Factory_No.6%2C_Chilwell%2C_Nottinghamshire_in_1917._Q30018.jpg',
-  'https://thumb.wikimedia.org/wikipedia/commons/thumb/4/43/Ethel_Gabain_-_A_Munition_Worker_-_9309.jpg/250px-Ethel_Gabain_-_A_Munition_Worker_-_9309.jpg',
-  'https://thumb.wikimedia.org/wikipedia/commons/thumb/3/34/Australian_infantry_small_box_respirators_Ypres_1917.jpg/250px-Australian_infantry_small_box_respirators_Ypres_1917.jpg',
-  'https://thumb.wikimedia.org/wikipedia/commons/thumb/f/f6/British_Mark_I_male_tank_Somme_25_September_1916.jpg/250px-British_Mark_I_male_tank_Somme_25_September_1916.jpg',
-  'https://thumb.wikimedia.org/wikipedia/commons/thumb/f/f5/Royal_Irish_Rifles_ration_party_Somme_July_1916.jpg/250px-Royal_Irish_Rifles_ration_party_Somme_July_1916.jpg',
+  'https://thumb.wikimedia.org/wikipedia/commons/thumb/e/ef/Franz_Ferdinand_%26_Sophie_Leave_Sarajevo_Guildhall.jpg/500px-Franz_Ferdinand_%26_Sophie_Leave_Sarajevo_Guildhall.jpg',
+  'https://thumb.wikimedia.org/wikipedia/commons/thumb/c/c0/Kitchener_poster_by_Alfred_Leete.jpg/500px-Kitchener_poster_by_Alfred_Leete.jpg',
+  'https://thumb.wikimedia.org/wikipedia/commons/thumb/4/4f/1914-es_kar%C3%A1csonyi_fegyversz%C3%BCnet.jpg/500px-1914-es_kar%C3%A1csonyi_fegyversz%C3%BCnet.jpg',
+  'https://thumb.wikimedia.org/wikipedia/commons/thumb/5/51/Western_front_1915-16.jpg/500px-Western_front_1915-16.jpg',
+  'https://thumb.wikimedia.org/wikipedia/commons/thumb/c/cb/Stretcher_bearers_Battle_of_Thiepval_Ridge_September_1916.jpg/500px-Stretcher_bearers_Battle_of_Thiepval_Ridge_September_1916.jpg',
+  'https://thumb.wikimedia.org/wikipedia/commons/thumb/f/fa/Cheshire_Regiment_trench_Somme_1916.jpg/500px-Cheshire_Regiment_trench_Somme_1916.jpg',
+  'https://thumb.wikimedia.org/wikipedia/commons/thumb/b/b9/Munition_workers_in_a_shell_warehouse_at_National_Shell_Filling_Factory_No.6%2C_Chilwell%2C_Nottinghamshire_in_1917._Q30018.jpg/500px-Munition_workers_in_a_shell_warehouse_at_National_Shell_Filling_Factory_No.6%2C_Chilwell%2C_Nottinghamshire_in_1917._Q30018.jpg',
+  'https://thumb.wikimedia.org/wikipedia/commons/thumb/a/af/THE_ARMS_PRODUCTION_IN_BRITAIN_IN_THE_FIRST_WORLD_WAR_Q27872.jpg/500px-THE_ARMS_PRODUCTION_IN_BRITAIN_IN_THE_FIRST_WORLD_WAR_Q27872.jpg',
+  'https://thumb.wikimedia.org/wikipedia/commons/thumb/3/34/Australian_infantry_small_box_respirators_Ypres_1917.jpg/500px-Australian_infantry_small_box_respirators_Ypres_1917.jpg',
+  'https://thumb.wikimedia.org/wikipedia/commons/thumb/f/f6/British_Mark_I_male_tank_Somme_25_September_1916.jpg/500px-British_Mark_I_male_tank_Somme_25_September_1916.jpg',
+  'https://thumb.wikimedia.org/wikipedia/commons/thumb/f/f5/Royal_Irish_Rifles_ration_party_Somme_July_1916.jpg/500px-Royal_Irish_Rifles_ration_party_Somme_July_1916.jpg',
   'https://upload.wikimedia.org/wikipedia/commons/0/04/Sidney_George_Lewis.png',
   'https://upload.wikimedia.org/wikipedia/commons/6/67/Cher_Ami.jpg',
-  'https://thumb.wikimedia.org/wikipedia/commons/thumb/4/43/Dressing_wounded_in_trench_during_the_battle_of_Courcelette._Sept._15%2C_1916.jpg/250px-Dressing_wounded_in_trench_during_the_battle_of_Courcelette._Sept._15%2C_1916.jpg',
-  'https://thumb.wikimedia.org/wikipedia/commons/thumb/0/0d/Armistice_Day_Celebrations%2C_London%2C_11_November_1918_Q65858.jpg/250px-Armistice_Day_Celebrations%2C_London%2C_11_November_1918_Q65858.jpg',
-  'https://thumb.wikimedia.org/wikipedia/commons/thumb/0/0e/In_Flanders_fields_and_other_poems%2C_handwritten.png/250px-In_Flanders_fields_and_other_poems%2C_handwritten.png'
+  'https://thumb.wikimedia.org/wikipedia/commons/thumb/4/43/Dressing_wounded_in_trench_during_the_battle_of_Courcelette._Sept._15%2C_1916.jpg/500px-Dressing_wounded_in_trench_during_the_battle_of_Courcelette._Sept._15%2C_1916.jpg',
+  'https://thumb.wikimedia.org/wikipedia/commons/thumb/0/0d/Armistice_Day_Celebrations%2C_London%2C_11_November_1918_Q65858.jpg/500px-Armistice_Day_Celebrations%2C_London%2C_11_November_1918_Q65858.jpg',
+  'https://thumb.wikimedia.org/wikipedia/commons/thumb/4/4c/Remembrance-sunday-service-at-the-cenotaph_54911841465_o.jpg/500px-Remembrance-sunday-service-at-the-cenotaph_54911841465_o.jpg'
 ];
+// 사진마다 저작권 표시 (0: 사라예보, 15: 추모 행사 사진은 CC0, 나머지는 퍼블릭 도메인)
+const LOAD_IMAGE_LICENSE = ['CC0','퍼블릭 도메인','퍼블릭 도메인','퍼블릭 도메인','퍼블릭 도메인','퍼블릭 도메인','퍼블릭 도메인','퍼블릭 도메인','퍼블릭 도메인','퍼블릭 도메인','퍼블릭 도메인','퍼블릭 도메인','퍼블릭 도메인','퍼블릭 도메인','퍼블릭 도메인','CC0'];
+const LOAD_IMAGE_COLOR = [15];   // 컬러로 보여 줄 사진 (양귀비의 빨간색이 보이도록 빛바랜 효과 없이)
 const LOAD_FACT_IMG = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, -1, 12, 13, 14, 15];
 const factImgCache = {};
 
@@ -1313,6 +1317,8 @@ function showFact(i) {
   loadFactImage(n).then(src => {
     if (factShown !== i) return;
     img.src = src;
+    img.classList.toggle('color', LOAD_IMAGE_COLOR.indexOf(n) >= 0);
+    $('loadFactCredit').textContent = '사진: Wikimedia Commons (' + LOAD_IMAGE_LICENSE[n] + ')';
     img.classList.add('show');
     $('loadFactCredit').classList.add('show');
     $('loadFact').querySelector('.load-fact-body').classList.add('has-img');
