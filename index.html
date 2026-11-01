@@ -47,6 +47,9 @@
     filter:sepia(.35) grayscale(.2) contrast(1.05);display:none}
   #loadFactImg.color{filter:none}
   #loadFactImg.show{display:block}
+  .load-fact-fig{margin:0;display:none;flex-direction:column;align-items:center;gap:8px;max-width:100%}
+  .load-fact-fig.show{display:flex}
+  .load-fact-caption{font-size:12px;line-height:1.6;color:var(--dim);text-align:center;word-break:keep-all;max-width:520px}
   .load-fact-credit{margin-top:10px;font-size:10px;color:var(--dim);opacity:0;transition:opacity .4s}
   .load-fact-credit.show{opacity:.7}
   @media (max-width:480px){#loadFactImg{max-height:200px} .load-fact-body{gap:10px}}
@@ -250,7 +253,10 @@
     <div id="loadFact" class="load-fact">
       <p class="load-fact-tag">알고 있나요?</p>
       <div class="load-fact-body">
-        <img id="loadFactImg" alt="">
+        <figure id="loadFactFig" class="load-fact-fig">
+          <img id="loadFactImg" alt="">
+          <figcaption id="loadFactCaption" class="load-fact-caption"></figcaption>
+        </figure>
         <p id="loadFactText" class="load-fact-text"></p>
       </div>
       <p id="loadFactCredit" class="load-fact-credit">사진: Wikimedia Commons (퍼블릭 도메인)</p>
@@ -1373,6 +1379,25 @@ const LOAD_IMAGE_URLS = [
 // 사진마다 저작권 표시 (0: 사라예보, 15: 추모 행사 사진은 CC0, 나머지는 퍼블릭 도메인)
 const LOAD_IMAGE_LICENSE = ['CC0','퍼블릭 도메인','퍼블릭 도메인','퍼블릭 도메인','퍼블릭 도메인','퍼블릭 도메인','퍼블릭 도메인','퍼블릭 도메인','퍼블릭 도메인','퍼블릭 도메인','퍼블릭 도메인','퍼블릭 도메인','퍼블릭 도메인','퍼블릭 도메인','퍼블릭 도메인','CC0'];
 const LOAD_IMAGE_COLOR = [15];   // 컬러로 보여 줄 사진 (양귀비의 빨간색이 보이도록 빛바랜 효과 없이)
+// 사진마다 아래에 띄울 설명 (LOAD_IMAGE_URLS와 같은 순서)
+const LOAD_IMAGE_CAPTION = [
+  '1914년 6월 28일, 사라예보 시청을 나서는 오스트리아 황태자 부부. 5분 뒤 총에 맞아 숨졌다.',
+  '영국 육군장관 키치너가 "조국은 당신을 원한다"며 입대를 권하는 모병 포스터 (1914)',
+  '1914년 크리스마스 휴전을 그린 삽화',
+  '1915~1916년 서부전선 지도',
+  '1916년 9월 솜 전투, 독일군 참호에서 부상병을 구해 옮기는 영국군 들것병들',
+  '1916년 7월 솜 전투, 빼앗은 독일군 참호를 지키는 영국군 체셔 연대 병사들',
+  '1917년 영국 칠웰 국립 포탄 충전 공장, 포탄 창고의 노동자들',
+  '1918년 5월 런던 울리치 병기창, 포탄에 끼울 구리 띠를 깎는 여성 노동자들',
+  '1917년 9월 이프르, 방독면을 쓴 오스트레일리아 보병들',
+  '1916년 9월 솜 전투에 나선 초기형 영국군 마크 I 탱크',
+  '1916년 솜 전투, 프리쿠르 마을 포격에 쓰고 남은 포탄 탄피 더미',
+  '열두 살에 입대해 프랑스에서 싸운 시드니 루이스',
+  '포위된 미군 병사 약 200명을 구하는 데 큰 역할을 한 비둘기 셰르 아미',
+  '1916년 9월 쿠르슬레트 전투, 참호에서 치료받는 캐나다군 부상병들',
+  '1918년 11월 11일 휴전일, 런던 거리에서 기뻐하는 사람들',
+  '2025년 11월, 런던 세노타프(전몰자 기념비) 앞에서 열린 현충일 추모식'
+];
 const LOAD_FACT_IMG = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, -1, 12, 13, 14, 15];
 const factImgCache = {};
 
@@ -1400,6 +1425,7 @@ function showFact(i) {
   $('loadFactText').textContent = LOAD_FACTS[i];
   const img = $('loadFactImg'), n = LOAD_FACT_IMG[i];
   img.classList.remove('show');
+  $('loadFactFig').classList.remove('show');
   $('loadFactCredit').classList.remove('show');
   $('loadFact').querySelector('.load-fact-body').classList.remove('has-img');
   if (n == null || n < 0) return;
@@ -1408,7 +1434,10 @@ function showFact(i) {
     img.src = src;
     img.classList.toggle('color', LOAD_IMAGE_COLOR.indexOf(n) >= 0);
     $('loadFactCredit').textContent = '사진: Wikimedia Commons (' + LOAD_IMAGE_LICENSE[n] + ')';
+    img.alt = LOAD_IMAGE_CAPTION[n] || '';
+    $('loadFactCaption').textContent = LOAD_IMAGE_CAPTION[n] || '';
     img.classList.add('show');
+    $('loadFactFig').classList.add('show');
     $('loadFactCredit').classList.add('show');
     $('loadFact').querySelector('.load-fact-body').classList.add('has-img');
   }).catch(() => {});   // 사진을 못 받으면 글만
